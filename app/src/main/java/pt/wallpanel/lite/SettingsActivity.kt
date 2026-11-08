@@ -29,6 +29,7 @@ class SettingsActivity : Activity() {
     private lateinit var sens: SeekBar
     private lateinit var sensLabel: TextView
     private lateinit var ssl: CheckBox
+    private lateinit var boot: CheckBox
     private lateinit var status: TextView
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
@@ -78,6 +79,11 @@ class SettingsActivity : Activity() {
             isChecked = prefs.ignoreSsl
         }.also { col.addView(it) }
 
+        boot = CheckBox(this).apply {
+            text = "Abrir automaticamente quando o tablet arranca"
+            isChecked = prefs.bootStart
+        }.also { col.addView(it) }
+
         label("Permissões")
         status = TextView(this).also { col.addView(it) }
         button("Permitir câmara") { requestPermissions(arrayOf(android.Manifest.permission.CAMERA), 1) }
@@ -88,10 +94,23 @@ class SettingsActivity : Activity() {
                     .putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Necessário para desligar o ecrã por completo (sem luz).")
             )
         }
+        button("Permitir \"Aparecer por cima\" (necessário para arrancar sozinha)") {
+            startActivity(
+                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+                    .setData(Uri.parse("package:$packageName"))
+            )
+        }
         button("Ignorar otimização de bateria") {
             @Suppress("BatteryLife")
             startActivity(
                 Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                    .setData(Uri.parse("package:$packageName"))
+            )
+        }
+
+        button("Definições da app (bateria / nunca adormecer)") {
+            startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                     .setData(Uri.parse("package:$packageName"))
             )
         }
@@ -108,7 +127,9 @@ class SettingsActivity : Activity() {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         val battery = pm.isIgnoringBatteryOptimizations(packageName)
         fun m(ok: Boolean) = if (ok) "✔" else "✘"
-        status.text = "${m(cam)} Câmara\n${m(admin)} Administrador (ecrã totalmente desligado)\n${m(battery)} Sem otimização de bateria"
+        val overlay = Settings.canDrawOverlays(this)
+        status.text = "${m(cam)} Câmara\n${m(admin)} Administrador (ecrã totalmente desligado)\n" +
+            "${m(battery)} Sem otimização de bateria\n${m(overlay)} Aparecer por cima (arranque automático)"
         if (cam) MotionService.start(this)
     }
 
@@ -129,5 +150,6 @@ class SettingsActivity : Activity() {
         prefs.timeoutSec = timeout.text.toString().toIntOrNull() ?: 15
         prefs.sensitivity = sens.progress + 1
         prefs.ignoreSsl = ssl.isChecked
+        prefs.bootStart = boot.isChecked
     }
 }

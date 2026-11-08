@@ -8,14 +8,16 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.http.SslError
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
@@ -31,11 +33,30 @@ class MainActivity : Activity() {
     private lateinit var blackout: View
     private var loadedUrl = ""
     private val handler = Handler(Looper.getMainLooper())
-    private val reload = Runnable { web.reload() }
+    private var pageFailed = false
+    private var offline = false
 
-    // 5 toques no canto superior esquerdo abrem as definições.
-    private var cornerTaps = 0
-    private var firstTapAt = 0L
+    /** Recarrega a página: se a última carga falhou, volta a pedir o URL; senão reload normal. */
+    private val reload = Runnable {
+        if (pageFailed) web.loadUrl(loadedUrl) else web.reload()
+    }
+
+    // Dois dedos premidos > 2 s abrem as definições.
+    private val openSettings = Runnable { startActivity(Intent(this, SettingsActivity::class.java)) }
+    private var gestureX = 0f
+    private var gestureY = 0f
+
+    private val netCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onLost(network: Network) { offline = true }
+        override fun onAvailable(network: Network) {
+            // Voltou a rede (Wi-Fi caiu e regressou): recarrega logo se a página tinha falhado ou ficou offline.
+            if (offline || pageFailed) {
+                offline = false
+                handler.removeCallbacks(reload)
+                handler.postDelayed(reload, 1500)
+            }
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,12 +77,15 @@ class MainActivity : Activity() {
                 override fun onReceivedSslError(view: WebView, h: SslErrorHandler, e: SslError) {
                     if (prefs.ignoreSsl) h.proceed() else h.cancel()
                 }
+                override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                    pageFailed = false
+                }
                 override fun onReceivedError(view: WebView, r: WebResourceRequest, e: WebResourceError) {
-                    // Rede/HA em baixo: tenta outra vez dentro de 10 s.
-                    if (r.isForMainFrame) {
-                        handler.removeCallbacks(reload)
-                        handler.postDelayed(reload, 10_000)
-                    }
+                    // Rede/HA em baixo: tenta outra vez dentro de 10 s (e logo que a rede voltar).
+                    if (r.isForMainFrame) markFailed()
+                }
+                override fun onReceivedHttpError(view: WebView, r: WebResourceRequest, e: android.webkit.WebResourceResponse) {
+                    if (r.isForMainFrame && e.statusCode >= 500) markFailed()
                 }
             }
         }
@@ -76,6 +100,15 @@ class MainActivity : Activity() {
         })
 
         requestRuntimePermissions()
+
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        cm.registerDefaultNetworkCallback(netCallback, handler)
+    }
+
+    private fun markFailed() {
+        pageFailed = true
+        handler.removeCallbacks(reload)
+        handler.postDelayed(reload, 10_000)
     }
 
     override fun onResume() {
@@ -96,14 +129,19 @@ class MainActivity : Activity() {
             MotionService.start(this)
         }
         MotionService.poke()
+        if (pageFailed) { handler.removeCallbacks(reload); handler.postDelayed(reload, 1000) }
     }
 
     override fun onPause() {
+        handler.removeCallbacks(openSettings)
         PanelState.listener = null
         super.onPause()
     }
 
     override fun onDestroy() {
+        try {
+            (getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).unregisterNetworkCallback(netCallback)
+        } catch (_: Exception) {}
         handler.removeCallbacksAndMessages(null)
         web.destroy()
         super.onDestroy()
@@ -121,17 +159,23 @@ class MainActivity : Activity() {
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         MotionService.poke()
-        if (ev.action == MotionEvent.ACTION_DOWN) {
-            val corner = 80 * resources.displayMetrics.density
-            if (ev.x < corner && ev.y < corner) {
-                val now = SystemClock.elapsedRealtime()
-                if (cornerTaps == 0 || now - firstTapAt > 3000) { cornerTaps = 0; firstTapAt = now }
-                if (++cornerTaps >= 5) {
-                    cornerTaps = 0
-                    startActivity(Intent(this, SettingsActivity::class.java))
-                    return true
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                handler.removeCallbacks(openSettings)
+                if (ev.pointerCount == 2) {
+                    gestureX = ev.getX(0); gestureY = ev.getY(0)
+                    handler.postDelayed(openSettings, 2000)
                 }
             }
+            MotionEvent.ACTION_MOVE -> if (ev.pointerCount == 2) {
+                // Se os dedos andarem (scroll/zoom), não é o gesto.
+                val slop = ViewConfiguration.get(this).scaledTouchSlop * 4
+                if (Math.abs(ev.getX(0) - gestureX) > slop || Math.abs(ev.getY(0) - gestureY) > slop) {
+                    handler.removeCallbacks(openSettings)
+                }
+            }
+            MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                handler.removeCallbacks(openSettings)
         }
         return super.dispatchTouchEvent(ev)
     }

@@ -16,6 +16,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.net.wifi.WifiManager
 import android.os.SystemClock
 
 /**
@@ -49,6 +50,7 @@ class MotionService : Service() {
     private lateinit var prefs: Prefs
     private var detector: MotionDetector? = null
     private var cpuLock: PowerManager.WakeLock? = null
+    private var wifiLock: WifiManager.WifiLock? = null
     private var sleptAt = 0L
 
     private val sleepRunnable = Runnable { goToSleep() }
@@ -81,6 +83,13 @@ class MotionService : Service() {
                 setReferenceCounted(false)
                 acquire()
             }
+            // Samsung adormece o Wi-Fi com o ecrã desligado; isto mantém-no ligado para o painel estar pronto ao acordar.
+            @Suppress("DEPRECATION")
+            wifiLock = (applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager)
+                .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "wallpanel:wifi").apply {
+                    setReferenceCounted(false)
+                    acquire()
+                }
             detector = MotionDetector(this, { prefs.sensitivity }) { main.post { onActivity() } }.also { it.start() }
             scheduleSleep()
         }
@@ -93,6 +102,7 @@ class MotionService : Service() {
         detector?.stop()
         detector = null
         cpuLock?.let { if (it.isHeld) it.release() }
+        wifiLock?.let { if (it.isHeld) it.release() }
         PanelState.set(false)
         super.onDestroy()
     }

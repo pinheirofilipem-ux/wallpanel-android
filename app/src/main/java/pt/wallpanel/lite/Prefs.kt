@@ -25,4 +25,9 @@ class Prefs(ctx: Context) {
     var ignoreSsl: Boolean
         get() = sp.getBoolean("ssl", false)
         set(v) = sp.edit().putBoolean("ssl", v).apply()
+
+    /** Abrir a app automaticamente quando o tablet arranca. */
+    var bootStart: Boolean
+        get() = sp.getBoolean("boot", true)
+        set(v) = sp.edit().putBoolean("boot", v).apply()
 }

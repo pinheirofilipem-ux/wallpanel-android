@@ -25,7 +25,27 @@ App Android mínima (sem dependências externas) para usar um tablet como painel
 4. No Android: **Bloqueio de ecrã = Nenhum ou Deslizar** (não PIN/padrão), senão o ecrã acorda mas fica no bloqueio.
 5. Deixa a app sempre aberta (é a atividade que aparece por cima do bloqueio ao acordar).
 
+## Extras
+
+- **Ligação perdida**: se o Wi-Fi/HA cair, a página volta a carregar sozinha (de 10 em 10 s e logo que a rede regressa).
+- **Definições**: dois dedos premidos durante mais de 2 segundos em qualquer ponto do ecrã.
+- **Arranque automático**: ao ligar o tablet a app abre-se sozinha. Requer ativar uma vez, em Definições, *Aparecer por cima* (e ter aberto a app pelo menos uma vez).
+
+## Samsung Galaxy Tab A7 (SM-T505)
+
+O ecrã é LCD, por isso usa o **administrador de dispositivo** (desliga o backlight a sério; o modo "ecrã preto" deixa luz residual).
+
+No tablet, para a app não ser morta pela One UI:
+1. Definições → Aplicações → WallPanel Lite → **Bateria → Sem restrições**.
+2. Definições → Assistência do dispositivo → Bateria → Limites de utilização em segundo plano: desativar *Colocar apps não usadas em suspensão* e adicionar a app a **Apps nunca em suspensão**.
+3. Definições → Aplicações → WallPanel Lite → **Aparecer por cima de outras apps: ativar**.
+4. Ecrã de bloqueio: **Nenhum** (ou Deslizar).
+5. Na lista de recentes, toca no ícone da app e escolhe **Manter aberta**.
+6. Com o tablet sempre ligado ao carregador, em Definições → Bateria podes limitar a carga a 85 % (Proteger bateria) se existir.
+
+Nota: se o tablet ficar completamente sem bateria, o Tab A7 não liga sozinho quando volta a energia — é preciso carregar no botão. Depois de ligado, a app arranca sozinha.
+
 ## Limitações conhecidas
 
-- Alguns fabricantes (Samsung, Xiaomi…) são agressivos a matar câmaras com o ecrã desligado: desativa a otimização de bateria e bloqueia a app na lista de recentes.
-- Não arranca sozinha após reiniciar (o Android 14+ não permite iniciar um serviço de câmara a partir do boot); abre a app uma vez.
+- Alguns fabricantes matam câmaras com o ecrã desligado; os passos acima minimizam isso.
+- Se a câmara parar, a app tenta reabri-la sozinha a cada 4 s.
