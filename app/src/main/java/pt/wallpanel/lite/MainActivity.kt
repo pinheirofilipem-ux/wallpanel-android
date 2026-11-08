@@ -121,7 +121,13 @@ class MainActivity : Activity() {
         applySleeping(PanelState.sleeping)
 
         val url = prefs.url
-        if (url.isNotBlank() && url != loadedUrl) {
+        if (prefs.reloadRequested) {
+            // Pedido nas definições: limpa cache (mantém sessões/cookies) e recarrega do zero.
+            prefs.reloadRequested = false
+            web.clearCache(true)
+            web.clearHistory()
+            if (url.isNotBlank()) { loadedUrl = url; web.loadUrl(url) }
+        } else if (url.isNotBlank() && url != loadedUrl) {
             loadedUrl = url
             web.loadUrl(url)
         }
