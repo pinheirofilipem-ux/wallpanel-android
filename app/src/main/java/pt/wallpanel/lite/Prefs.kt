@@ -30,4 +30,9 @@ class Prefs(ctx: Context) {
     var bootStart: Boolean
         get() = sp.getBoolean("boot", true)
         set(v) = sp.edit().putBoolean("boot", v).apply()
+
+    /** Pedido (vindo das definições) para limpar a cache e recarregar o painel; consumido pela MainActivity. */
+    var reloadRequested: Boolean
+        get() = sp.getBoolean("reload", false)
+        set(v) = sp.edit().putBoolean("reload", v).apply()
 }

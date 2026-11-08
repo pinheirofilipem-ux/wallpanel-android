@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Paleta Pine3 View (ameixa + creme + âmbar), tirada do ícone do pine3-view. -->
+<resources>
+    <color name="pine_bg_top">#80456D</color>
+    <color name="pine_bg_bottom">#371A38</color>
+    <color name="pine_tile">#33F8F2E6</color>
+    <color name="pine_cream1">#F8F2E6</color>
+    <color name="pine_cream2">#EEE5D2</color>
+    <color name="pine_cream3">#E4D7BD</color>
+    <color name="pine_amber">#F6B83F</color>
+</resources>

@@ -1,8 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#FFFFFF"
-        android:pathData="M30,34h48v32h-48z M36,40v20h36v-20z M44,72h20v4h-20z" />
-    <path android:fillColor="#FFFFFF"
-        android:pathData="M54,50m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+
+    <!-- Moldura do painel de parede -->
+    <path
+        android:strokeColor="@color/pine_cream1"
+        android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:pathData="M37,29 H71 A8,8 0 0 1 79,37 V71 A8,8 0 0 1 71,79 H37 A8,8 0 0 1 29,71 V37 A8,8 0 0 1 37,29 Z" />
+
+    <!-- Tile grande (casa) -->
+    <path android:fillColor="@color/pine_tile"
+        android:pathData="M36,37 H55 A2.5,2.5 0 0 1 57.5,39.5 V68.5 A2.5,2.5 0 0 1 55,71 H36 A2.5,2.5 0 0 1 33.5,68.5 V39.5 A2.5,2.5 0 0 1 36,37 Z" />
+    <!-- Tile pequeno cima (pinheiro) -->
+    <path android:fillColor="@color/pine_tile"
+        android:pathData="M62,37 H72 A2.5,2.5 0 0 1 74.5,39.5 V51 A2.5,2.5 0 0 1 72,53.5 H62 A2.5,2.5 0 0 1 59.5,51 V39.5 A2.5,2.5 0 0 1 62,37 Z" />
+    <!-- Tile pequeno baixo (sensor) -->
+    <path android:fillColor="@color/pine_tile"
+        android:pathData="M62,56.5 H72 A2.5,2.5 0 0 1 74.5,59 V68.5 A2.5,2.5 0 0 1 72,71 H62 A2.5,2.5 0 0 1 59.5,68.5 V59 A2.5,2.5 0 0 1 62,56.5 Z" />
+
+    <!-- Casa com porta âmbar (luz acesa) -->
+    <path android:fillColor="@color/pine_cream2"
+        android:pathData="M45.5,43 L55,51.5 H52.5 V64.5 H38.5 V51.5 H36 Z" />
+    <path android:fillColor="@color/pine_amber"
+        android:pathData="M43.5,64.5 V56.5 H47.5 V64.5 Z" />
+
+    <!-- Pinheiro (igual ao do Pine3 View: 3 níveis creme + tronco âmbar) -->
+    <path android:fillColor="@color/pine_cream3"
+        android:pathData="M67,44.5 L72.2,51 H61.8 Z" />
+    <path android:fillColor="@color/pine_cream2"
+        android:pathData="M67,41.5 L71.6,47.5 H62.4 Z" />
+    <path android:fillColor="@color/pine_cream1"
+        android:pathData="M67,39 L70.6,43.5 H63.4 Z" />
+    <path android:fillColor="@color/pine_amber"
+        android:pathData="M66.2,51 H67.8 V52.6 H66.2 Z" />
+
+    <!-- Sensor (anel âmbar) -->
+    <path android:fillColor="@color/pine_amber"
+        android:pathData="M67,60.5 a4.2,4.2 0 1 0 0.01,0 Z M67,62.3 a2.4,2.4 0 1 1 -0.01,0 Z" />
 </vector>

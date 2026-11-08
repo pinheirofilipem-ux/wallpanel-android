@@ -28,6 +28,11 @@ import android.widget.FrameLayout
 
 class MainActivity : Activity() {
 
+    private companion object {
+        const val SETTLE_MS = 300L  // espera com tudo preto até a janela/barras/página estabilizarem
+        const val FADE_MS = 300L    // duração do fade-in
+    }
+
     private lateinit var prefs: Prefs
     private lateinit var web: WebView
     private lateinit var blackout: View
@@ -35,6 +40,17 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private var pageFailed = false
     private var offline = false
+    private var resumed = false
+
+    /** Faz o fade do preto para o painel (só quando a janela está estável). */
+    private val reveal = Runnable {
+        if (blackout.visibility == View.VISIBLE && !PanelState.sleeping) {
+            blackout.animate().alpha(0f).setDuration(FADE_MS).withEndAction {
+                blackout.visibility = View.GONE
+                blackout.alpha = 1f
+            }.start()
+        }
+    }
 
     /** Recarrega a página: se a última carga falhou, volta a pedir o URL; senão reload normal. */
     private val reload = Runnable {
@@ -91,7 +107,7 @@ class MainActivity : Activity() {
         }
         blackout = View(this).apply {
             setBackgroundColor(Color.BLACK)
-            visibility = View.GONE
+            isClickable = true // enquanto está preto, não deixa toques "cegos" chegarem ao dashboard
         }
         setContentView(FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
@@ -113,6 +129,8 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        resumed = true
+        cover() // começa sempre tapado; o fade só acontece quando estiver estável
         hideSystemBars()
         // Se não houver bloqueio seguro (PIN), isto remove o "deslizar para desbloquear".
         (getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).requestDismissKeyguard(this, null)
@@ -121,7 +139,13 @@ class MainActivity : Activity() {
         applySleeping(PanelState.sleeping)
 
         val url = prefs.url
-        if (url.isNotBlank() && url != loadedUrl) {
+        if (prefs.reloadRequested) {
+            // Pedido nas definições: limpa cache (mantém sessões/cookies) e recarrega do zero.
+            prefs.reloadRequested = false
+            web.clearCache(true)
+            web.clearHistory()
+            if (url.isNotBlank()) { loadedUrl = url; web.loadUrl(url) }
+        } else if (url.isNotBlank() && url != loadedUrl) {
             loadedUrl = url
             web.loadUrl(url)
         }
@@ -133,6 +157,8 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() {
+        resumed = false
+        cover() // já fica tapado para o próximo acordar
         handler.removeCallbacks(openSettings)
         PanelState.listener = null
         super.onPause()
@@ -149,7 +175,7 @@ class MainActivity : Activity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) hideSystemBars()
+        if (hasFocus) { hideSystemBars(); scheduleReveal() }
     }
 
     @Deprecated("Deprecated in Java")
@@ -180,9 +206,22 @@ class MainActivity : Activity() {
         return super.dispatchTouchEvent(ev)
     }
 
+    private fun cover() {
+        handler.removeCallbacks(reveal)
+        blackout.animate().cancel()
+        blackout.alpha = 1f
+        blackout.visibility = View.VISIBLE
+    }
+
+    private fun scheduleReveal() {
+        if (!resumed || !hasWindowFocus() || PanelState.sleeping || blackout.visibility != View.VISIBLE) return
+        handler.removeCallbacks(reveal)
+        handler.postDelayed(reveal, SETTLE_MS)
+    }
+
     /** Fallback sem permissão de administrador: ecrã preto + brilho no mínimo absoluto. */
     private fun applySleeping(sleeping: Boolean) {
-        blackout.visibility = if (sleeping) View.VISIBLE else View.GONE
+        if (sleeping) cover() else scheduleReveal()
         val lp = window.attributes
         lp.screenBrightness = if (sleeping) WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_OFF
         else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE

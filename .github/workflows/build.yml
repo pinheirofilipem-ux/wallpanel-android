@@ -1,6 +1,8 @@
 name: Build APK
 on:
   push:
+    branches: ['**']
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -22,11 +24,19 @@ jobs:
         with:
           name: wallpanel-lite-apk
           path: WallPanelLite.apk
-      # Publica/atualiza a release "latest" com o APK mais recente.
+      # Tag vX.Y -> release normal, com o nome da tag e notas automáticas.
       - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: Pine3 Wallpanel ${{ github.ref_name }}
+          generate_release_notes: true
+          files: WallPanelLite.apk
+      # Qualquer outro push -> atualiza a pre-release "latest" com o APK mais recente.
+      - uses: softprops/action-gh-release@v2
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         with:
           tag_name: latest
-          name: WallPanel Lite (último build)
+          name: Pine3 Wallpanel (último build)
           prerelease: true
           files: WallPanelLite.apk
           target_commitish: ${{ github.sha }}
