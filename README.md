@@ -1,4 +1,4 @@
-# WallPanel Lite
+# Pine3 Wallpanel
 
 App Android mínima (sem dependências externas) para usar um tablet como painel de parede do Home Assistant:
 
@@ -36,9 +36,9 @@ App Android mínima (sem dependências externas) para usar um tablet como painel
 O ecrã é LCD, por isso usa o **administrador de dispositivo** (desliga o backlight a sério; o modo "ecrã preto" deixa luz residual).
 
 No tablet, para a app não ser morta pela One UI:
-1. Definições → Aplicações → WallPanel Lite → **Bateria → Sem restrições**.
+1. Definições → Aplicações → Pine3 Wallpanel → **Bateria → Sem restrições**.
 2. Definições → Assistência do dispositivo → Bateria → Limites de utilização em segundo plano: desativar *Colocar apps não usadas em suspensão* e adicionar a app a **Apps nunca em suspensão**.
-3. Definições → Aplicações → WallPanel Lite → **Aparecer por cima de outras apps: ativar**.
+3. Definições → Aplicações → Pine3 Wallpanel → **Aparecer por cima de outras apps: ativar**.
 4. Ecrã de bloqueio: **Nenhum** (ou Deslizar).
 5. Na lista de recentes, toca no ícone da app e escolhe **Manter aberta**.
 6. Com o tablet sempre ligado ao carregador, em Definições → Bateria podes limitar a carga a 85 % (Proteger bateria) se existir.

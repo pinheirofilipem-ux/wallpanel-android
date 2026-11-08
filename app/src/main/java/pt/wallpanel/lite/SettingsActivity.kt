@@ -33,16 +33,18 @@ import android.widget.Toast
 
 class SettingsActivity : Activity() {
 
-    // Paleta escura moderna
-    private val bg = Color.parseColor("#0E1013")
-    private val surface = Color.parseColor("#181B21")
-    private val field = Color.parseColor("#232730")
-    private val textPrimary = Color.parseColor("#ECEFF4")
-    private val textSecondary = Color.parseColor("#9AA3B2")
-    private val accent = Color.parseColor("#4FB3F6")
-    private val onAccent = Color.parseColor("#06121C")
-    private val ok = Color.parseColor("#4CC38A")
-    private val bad = Color.parseColor("#F2655C")
+    // Paleta Pine3 View: ameixa + creme + âmbar
+    private val bg = Color.parseColor("#1C0F1E")
+    private val surface = Color.parseColor("#2B1A2D")
+    private val field = Color.parseColor("#3A2339")
+    private val tonal = Color.parseColor("#44294A")
+    private val textPrimary = Color.parseColor("#F8F2E6")
+    private val textSecondary = Color.parseColor("#BFA9BB")
+    private val hintColor = Color.parseColor("#7C687A")
+    private val accent = Color.parseColor("#F6B83F")
+    private val onAccent = Color.parseColor("#2B1700")
+    private val ok = Color.parseColor("#8FD9A8")
+    private val bad = Color.parseColor("#F2755C")
 
     private lateinit var prefs: Prefs
     private lateinit var url: EditText
@@ -76,15 +78,21 @@ class SettingsActivity : Activity() {
         LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { topMargin = dp(top); bottomMargin = dp(bottom) }
 
-    private fun card(parent: LinearLayout, title: String, subtitle: String? = null): LinearLayout {
+    private fun card(parent: LinearLayout, title: String, subtitle: String? = null, weight: Float = 1f): LinearLayout {
         val c = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = rounded(surface, 20)
-            setPadding(dp(20), dp(18), dp(20), dp(20))
+            setPadding(dp(18), dp(16), dp(18), dp(18))
         }
         c.addView(text(title, 16f, textPrimary, true))
         if (subtitle != null) c.addView(text(subtitle, 13f, textSecondary), lp(top = 2))
-        parent.addView(c, lp(bottom = 14))
+        if (parent.orientation == LinearLayout.HORIZONTAL) {
+            parent.addView(c, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
+                marginEnd = dp(14)
+            })
+        } else {
+            parent.addView(c, lp(bottom = 14))
+        }
         return c
     }
 
@@ -97,7 +105,7 @@ class SettingsActivity : Activity() {
     private fun input(value: String, hint: String, type: Int) = EditText(this).apply {
         setText(value)
         this.hint = hint
-        setHintTextColor(Color.parseColor("#5B6475"))
+        setHintTextColor(hintColor)
         setTextColor(textPrimary)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
         inputType = type
@@ -112,11 +120,11 @@ class SettingsActivity : Activity() {
             isChecked = checked
             thumbTintList = ColorStateList(
                 arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                intArrayOf(accent, Color.parseColor("#C7CDD8"))
+                intArrayOf(accent, Color.parseColor("#D9CCD6"))
             )
             trackTintList = ColorStateList(
                 arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                intArrayOf(Color.argb(110, 79, 179, 246), Color.parseColor("#3A404C"))
+                intArrayOf(Color.argb(110, 246, 184, 63), Color.parseColor("#5A4259"))
             )
         }
         val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -132,7 +140,7 @@ class SettingsActivity : Activity() {
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         setTextColor(if (filled) onAccent else accent)
-        background = withRipple(rounded(if (filled) accent else Color.parseColor("#1F2A36"), 14))
+        background = withRipple(rounded(if (filled) accent else tonal, 14))
         setPadding(dp(18), dp(14), dp(18), dp(14))
         isClickable = true
         setOnClickListener { onClick() }
@@ -145,7 +153,7 @@ class SettingsActivity : Activity() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             setTextColor(accent)
-            background = withRipple(rounded(Color.parseColor("#1F2A36"), 10))
+            background = withRipple(rounded(tonal, 10))
             setPadding(dp(14), dp(8), dp(14), dp(8))
             setOnClickListener { onAction() }
         }
@@ -163,12 +171,25 @@ class SettingsActivity : Activity() {
 
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
-        // Cabeçalho
-        col.addView(text("Definições", 28f, textPrimary, true))
-        col.addView(text("WallPanel Lite", 14f, textSecondary), lp(top = 2, bottom = 20))
+        // Cabeçalho: ícone + nome da app
+        val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        header.addView(
+            android.widget.ImageView(this).apply { setImageResource(R.mipmap.ic_launcher) },
+            LinearLayout.LayoutParams(dp(52), dp(52)).apply { marginEnd = dp(16) }
+        )
+        val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        titles.addView(text("Pine3 Wallpanel", 24f, textPrimary, true))
+        titles.addView(text("Definições", 14f, textSecondary), lp(top = 1))
+        header.addView(titles, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(button("Guardar e abrir painel", true) { save(); finish() }, LinearLayout.LayoutParams(-2, -2))
+        col.addView(header, lp(bottom = 16))
+
+        // Três colunas lado a lado (ecrã horizontal, sem scroll)
+        val cards = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        col.addView(cards, LinearLayout.LayoutParams(-1, -2))
 
         // Painel
-        val panel = card(col, "Painel", "Endereço do teu dashboard do Home Assistant")
+        val panel = card(cards, "Painel", "Endereço do teu dashboard do Home Assistant")
         url = input(prefs.url, "http://homeassistant.local:8123/lovelace/0", InputType.TYPE_TEXT_VARIATION_URI)
         labeled(panel, "URL", url)
         ssl = switchRow(panel, "Aceitar certificado HTTPS auto-assinado", prefs.ignoreSsl)
@@ -183,7 +204,7 @@ class SettingsActivity : Activity() {
         )
 
         // Movimento
-        val motion = card(col, "Movimento e ecrã", "Acorda com movimento, desliga quando não há")
+        val motion = card(cards, "Movimento e ecrã", "Acorda com movimento, desliga quando não há")
         timeout = input(prefs.timeoutSec.toString(), "15", InputType.TYPE_CLASS_NUMBER)
         labeled(motion, "Desligar o ecrã após (segundos sem movimento)", timeout)
 
@@ -207,7 +228,7 @@ class SettingsActivity : Activity() {
         showSens(prefs.sensitivity)
 
         // Sistema
-        val system = card(col, "Sistema", "Permissões para funcionar sempre, mesmo com o ecrã desligado")
+        val system = card(cards, "Sistema", "Permissões para funcionar sempre, mesmo com o ecrã desligado", 1.15f)
         statusRow(system, "Câmara", "Permitir", {
             checkSelfPermission(android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         }) { requestPermissions(arrayOf(android.Manifest.permission.CAMERA), 1) }
@@ -235,20 +256,16 @@ class SettingsActivity : Activity() {
             lp(top = 18)
         )
 
-        // Ação principal
-        col.addView(button("Guardar e abrir painel", true) { save(); finish() }, lp(top = 6))
-        col.addView(text("Atalho: dois dedos premidos 2 s no painel abrem estas definições.", 12f, textSecondary).apply {
-            gravity = Gravity.CENTER
-        }, lp(top = 14))
+        col.addView(
+            text("Atalho: dois dedos premidos 2 s no painel abrem estas definições.", 12f, textSecondary),
+            lp(top = 4)
+        )
 
-        // Coluna centrada com largura máxima (bom em tablet)
-        val maxW = dp(640)
-        val screenW = resources.displayMetrics.widthPixels
-        val colW = if (screenW < maxW + dp(32)) ViewGroup.LayoutParams.MATCH_PARENT else maxW
         val holder = FrameLayout(this).apply {
-            setPadding(dp(16), dp(28), dp(16), dp(28))
-            addView(col, FrameLayout.LayoutParams(colW, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+            setPadding(dp(24), dp(18), dp(10), dp(18))
+            addView(col, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
+        // ScrollView só como rede de segurança em ecrãs pequenos; num tablet horizontal não há scroll.
         setContentView(ScrollView(this).apply {
             setBackgroundColor(bg)
             isFillViewport = true
