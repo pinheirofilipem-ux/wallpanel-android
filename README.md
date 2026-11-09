@@ -28,6 +28,7 @@ App Android mínima (sem dependências externas) para usar um tablet como painel
 ## Extras
 
 - **Ligação perdida**: se o Wi-Fi/HA cair, a página volta a carregar sozinha (de 10 em 10 s e logo que a rede regressa).
+- **Vários painéis**: guarda quantos URLs quiseres (nome + endereço) em Definições → Painéis. Toca num para o ativar; **três dedos no painel** alternam para o seguinte, com fade.
 - **Definições**: dois dedos premidos durante mais de 2 segundos em qualquer ponto do ecrã.
 - **Arranque automático**: ao ligar o tablet a app abre-se sozinha. Requer ativar uma vez, em Definições, *Aparecer por cima* (e ter aberto a app pelo menos uma vez).
 

@@ -25,6 +25,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import android.widget.Toast
 
 class MainActivity : Activity() {
 
@@ -41,6 +42,7 @@ class MainActivity : Activity() {
     private var pageFailed = false
     private var offline = false
     private var resumed = false
+    private var lastSwitchAt = 0L
 
     /** Faz o fade do preto para o painel (só quando a janela está estável). */
     private val reveal = Runnable {
@@ -188,6 +190,7 @@ class MainActivity : Activity() {
         when (ev.actionMasked) {
             MotionEvent.ACTION_POINTER_DOWN -> {
                 handler.removeCallbacks(openSettings)
+                if (ev.pointerCount == 3) nextPanel()
                 if (ev.pointerCount == 2) {
                     gestureX = ev.getX(0); gestureY = ev.getY(0)
                     handler.postDelayed(openSettings, 2000)
@@ -204,6 +207,25 @@ class MainActivity : Activity() {
                 handler.removeCallbacks(openSettings)
         }
         return super.dispatchTouchEvent(ev)
+    }
+
+    /** Três dedos no ecrã: passa ao painel seguinte da lista (com o mesmo fade suave). */
+    private fun nextPanel() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastSwitchAt < 1200) return
+        lastSwitchAt = now
+        val list = prefs.panels
+        if (list.size < 2) {
+            Toast.makeText(this, "Só há um painel guardado", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val next = (prefs.activeIndex.coerceIn(0, list.lastIndex) + 1) % list.size
+        prefs.activeIndex = next
+        Toast.makeText(this, list[next].name.ifBlank { list[next].url }, Toast.LENGTH_SHORT).show()
+        cover()
+        loadedUrl = list[next].url
+        web.loadUrl(loadedUrl)
+        scheduleReveal()
     }
 
     private fun cover() {
