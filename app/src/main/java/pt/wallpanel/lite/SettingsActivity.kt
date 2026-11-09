@@ -47,7 +47,7 @@ class SettingsActivity : Activity() {
     private val bad = Color.parseColor("#F2755C")
 
     private lateinit var prefs: Prefs
-    private lateinit var url: EditText
+    private lateinit var panelList: LinearLayout
     private lateinit var timeout: EditText
     private lateinit var sens: SeekBar
     private lateinit var sensValue: TextView
@@ -189,10 +189,16 @@ class SettingsActivity : Activity() {
         col.addView(cards, LinearLayout.LayoutParams(-1, -2))
 
         // Painel
-        val panel = card(cards, "Painel", "Endereço do teu dashboard do Home Assistant")
-        url = input(prefs.url, "http://homeassistant.local:8123/lovelace/0", InputType.TYPE_TEXT_VARIATION_URI)
-        labeled(panel, "URL", url)
-        ssl = switchRow(panel, "Aceitar certificado HTTPS auto-assinado", prefs.ignoreSsl)
+        val panel = card(cards, "Painéis", "Toca num painel para o ativar. 3 dedos no painel alternam.")
+        panelList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        // Lista com altura limitada: com muitos painéis, faz scroll só aqui dentro.
+        panel.addView(
+            ScrollView(this).apply { addView(panelList) },
+            LinearLayout.LayoutParams(-1, dp(150)).apply { topMargin = dp(10) }
+        )
+        panel.addView(button("+ Adicionar painel", false) { editPanel(-1) }, lp(top = 10))
+        renderPanels()
+        ssl = switchRow(panel, "Aceitar certificado HTTPS auto-assinado", prefs.ignoreSsl, top = 12)
         panel.addView(
             button("Limpar cache e recarregar página", false) {
                 save()
@@ -200,7 +206,7 @@ class SettingsActivity : Activity() {
                 Toast.makeText(this, "Cache limpa. A recarregar…", Toast.LENGTH_SHORT).show()
                 finish()
             },
-            lp(top = 18)
+            lp(top = 12)
         )
 
         // Movimento
@@ -302,10 +308,84 @@ class SettingsActivity : Activity() {
         return super.dispatchTouchEvent(ev)
     }
 
+    /** Desenha a lista de painéis: o ativo tem o ponto preenchido. */
+    private fun renderPanels() {
+        panelList.removeAllViews()
+        val list = prefs.panels
+        val active = prefs.activeIndex.coerceIn(0, (list.size - 1).coerceAtLeast(0))
+        if (list.isEmpty()) {
+            panelList.addView(text("Ainda não há painéis. Adiciona o primeiro.", 14f, textSecondary), lp(top = 6))
+        }
+        list.forEachIndexed { i, p ->
+            val row = LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                background = withRipple(rounded(if (i == active) tonal else surface, 12))
+                setPadding(dp(12), dp(10), dp(8), dp(10))
+                isClickable = true
+                setOnClickListener { prefs.activeIndex = i; renderPanels() }
+            }
+            row.addView(View(this).apply {
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    if (i == active) setColor(accent) else { setColor(Color.TRANSPARENT); setStroke(dp(2), hintColor) }
+                }
+            }, LinearLayout.LayoutParams(dp(12), dp(12)).apply { marginEnd = dp(12) })
+            val names = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            names.addView(text(p.name.ifBlank { "Painel ${i + 1}" }, 15f, textPrimary, true).apply { setSingleLine() })
+            names.addView(text(p.url, 12f, textSecondary).apply {
+                setSingleLine(); ellipsize = android.text.TextUtils.TruncateAt.END
+            })
+            row.addView(names, LinearLayout.LayoutParams(0, -2, 1f))
+            row.addView(TextView(this).apply {
+                text = "Editar"
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                setTextColor(accent)
+                setPadding(dp(12), dp(8), dp(12), dp(8))
+                setOnClickListener { editPanel(i) }
+            })
+            panelList.addView(row, lp(top = if (i == 0) 0 else 6))
+        }
+    }
+
+    /** Diálogo para criar (index = -1) ou editar/apagar um painel. */
+    private fun editPanel(index: Int) {
+        val list = prefs.panels.toMutableList()
+        val existing = list.getOrNull(index)
+        val name = input(existing?.name ?: "", "Nome (ex.: Sala)", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES)
+        val addr = input(existing?.url ?: "", "http://homeassistant.local:8123/lovelace/0", InputType.TYPE_TEXT_VARIATION_URI)
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(10), dp(22), 0)
+        }
+        labeled(box, "Nome", name)
+        labeled(box, "URL do dashboard", addr)
+        val b = android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle(if (existing == null) "Novo painel" else "Editar painel")
+            .setView(box)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Guardar") { _, _ ->
+                var u = addr.text.toString().trim()
+                if (u.isBlank()) { Toast.makeText(this, "Falta o URL", Toast.LENGTH_SHORT).show(); return@setPositiveButton }
+                if (!u.contains("://")) u = "http://$u"
+                val panel = Panel(name.text.toString().trim(), u)
+                if (existing == null) { list.add(panel); prefs.activeIndex = list.lastIndex } else list[index] = panel
+                prefs.panels = list
+                renderPanels()
+            }
+        if (existing != null) {
+            b.setNeutralButton("Apagar") { _, _ ->
+                list.removeAt(index)
+                prefs.panels = list
+                prefs.activeIndex = prefs.activeIndex.coerceIn(0, (list.size - 1).coerceAtLeast(0))
+                renderPanels()
+            }
+        }
+        b.show()
+    }
+
     private fun showSens(v: Int) { sensValue.text = "$v / 10" }
 
     private fun save() {
-        prefs.url = url.text.toString()
         prefs.timeoutSec = timeout.text.toString().toIntOrNull() ?: 15
         prefs.sensitivity = sens.progress + 1
         prefs.ignoreSsl = ssl.isChecked
