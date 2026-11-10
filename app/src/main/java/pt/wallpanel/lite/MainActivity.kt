@@ -19,6 +19,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -32,17 +33,29 @@ class MainActivity : Activity() {
     private companion object {
         const val SETTLE_MS = 300L  // espera com tudo preto até a janela/barras/página estabilizarem
         const val FADE_MS = 300L    // duração do fade-in
+        const val SLIDE_MS = 320L   // duração da transição horizontal entre painéis
+        const val SWITCH_SETTLE_MS = 400L   // espera depois de o novo painel carregar, antes de deslizar
+        const val SWITCH_TIMEOUT_MS = 5000L // se o painel não carregar, desliza na mesma
     }
 
     private lateinit var prefs: Prefs
     private lateinit var web: WebView
+    private lateinit var container: FrameLayout
+    private var standby: WebView? = null
+    private var standbyFailed = false
+    private var switching = false
     private lateinit var blackout: View
     private var loadedUrl = ""
     private val handler = Handler(Looper.getMainLooper())
     private var pageFailed = false
     private var offline = false
     private var resumed = false
-    private var lastSwitchAt = 0L
+
+    // Gesto de 3 dedos (swipe horizontal) para trocar de painel.
+    private var swipeActive = false
+    private var swipeFired = false
+    private var swipeStartX = 0f
+    private var swipeStartY = 0f
 
     /** Faz o fade do preto para o painel (só quando a janela está estável). */
     private val reveal = Runnable {
@@ -76,7 +89,6 @@ class MainActivity : Activity() {
         }
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
@@ -86,41 +98,53 @@ class MainActivity : Activity() {
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        web = WebView(this).apply {
-            setBackgroundColor(Color.BLACK)
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.mediaPlaybackRequiresUserGesture = false
-            webViewClient = object : WebViewClient() {
-                override fun onReceivedSslError(view: WebView, h: SslErrorHandler, e: SslError) {
-                    if (prefs.ignoreSsl) h.proceed() else h.cancel()
-                }
-                override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
-                    pageFailed = false
-                }
-                override fun onReceivedError(view: WebView, r: WebResourceRequest, e: WebResourceError) {
-                    // Rede/HA em baixo: tenta outra vez dentro de 10 s (e logo que a rede voltar).
-                    if (r.isForMainFrame) markFailed()
-                }
-                override fun onReceivedHttpError(view: WebView, r: WebResourceRequest, e: android.webkit.WebResourceResponse) {
-                    if (r.isForMainFrame && e.statusCode >= 500) markFailed()
-                }
-            }
-        }
+        web = newWebView()
         blackout = View(this).apply {
             setBackgroundColor(Color.BLACK)
             isClickable = true // enquanto está preto, não deixa toques "cegos" chegarem ao dashboard
         }
-        setContentView(FrameLayout(this).apply {
+        container = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
             addView(web, FrameLayout.LayoutParams(-1, -1))
             addView(blackout, FrameLayout.LayoutParams(-1, -1))
-        })
+        }
+        setContentView(container)
 
         requestRuntimePermissions()
 
         val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         cm.registerDefaultNetworkCallback(netCallback, handler)
+    }
+
+    /** Cria um WebView configurado. Os callbacks de erro só mexem no estado se for o WebView ativo. */
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun newWebView(): WebView = WebView(this).apply {
+        setBackgroundColor(Color.BLACK)
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.mediaPlaybackRequiresUserGesture = false
+        webViewClient = object : WebViewClient() {
+            override fun onReceivedSslError(view: WebView, h: SslErrorHandler, e: SslError) {
+                if (prefs.ignoreSsl) h.proceed() else h.cancel()
+            }
+            override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                if (view === web) pageFailed = false else standbyFailed = false
+            }
+            override fun onReceivedError(view: WebView, r: WebResourceRequest, e: WebResourceError) {
+                // Rede/HA em baixo: tenta outra vez dentro de 10 s (e logo que a rede voltar).
+                if (r.isForMainFrame) { if (view === web) markFailed() else standbyFailed = true }
+            }
+            override fun onReceivedHttpError(view: WebView, r: WebResourceRequest, e: android.webkit.WebResourceResponse) {
+                if (r.isForMainFrame && e.statusCode >= 500) { if (view === web) markFailed() else standbyFailed = true }
+            }
+            override fun onPageFinished(view: WebView, url: String) {
+                // O painel de destino acabou de carregar: dá um instante para o SPA desenhar e desliza.
+                if (view === standby && switching) {
+                    handler.removeCallbacks(startSlide)
+                    handler.postDelayed(startSlide, SWITCH_SETTLE_MS)
+                }
+            }
+        }
     }
 
     private fun markFailed() {
@@ -172,6 +196,7 @@ class MainActivity : Activity() {
         } catch (_: Exception) {}
         handler.removeCallbacksAndMessages(null)
         web.destroy()
+        standby?.destroy()
         super.onDestroy()
     }
 
@@ -188,9 +213,21 @@ class MainActivity : Activity() {
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         MotionService.poke()
         when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> swipeActive = false
             MotionEvent.ACTION_POINTER_DOWN -> {
                 handler.removeCallbacks(openSettings)
-                if (ev.pointerCount == 3) nextPanel()
+                if (ev.pointerCount == 3) {
+                    // Começou o gesto de 3 dedos: cancela o que o WebView tinha iniciado (scroll/zoom)
+                    // e passa a engolir os toques até os dedos saírem.
+                    swipeActive = true
+                    swipeFired = false
+                    swipeStartX = centroidX(ev); swipeStartY = centroidY(ev)
+                    val c = MotionEvent.obtain(ev)
+                    c.action = MotionEvent.ACTION_CANCEL
+                    super.dispatchTouchEvent(c)
+                    c.recycle()
+                    return true
+                }
                 if (ev.pointerCount == 2) {
                     gestureX = ev.getX(0); gestureY = ev.getY(0)
                     handler.postDelayed(openSettings, 2000)
@@ -206,26 +243,75 @@ class MainActivity : Activity() {
             MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
                 handler.removeCallbacks(openSettings)
         }
+        if (swipeActive) {
+            if (ev.actionMasked == MotionEvent.ACTION_MOVE && !swipeFired && ev.pointerCount >= 3) {
+                val dx = centroidX(ev) - swipeStartX
+                val dy = centroidY(ev) - swipeStartY
+                if (Math.abs(dx) > 80 * resources.displayMetrics.density && Math.abs(dx) > 1.3f * Math.abs(dy)) {
+                    swipeFired = true
+                    switchPanel(if (dx < 0) +1 else -1) // deslizar para a esquerda = painel seguinte
+                }
+            }
+            if (ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_CANCEL) {
+                swipeActive = false
+            }
+            return true
+        }
         return super.dispatchTouchEvent(ev)
     }
 
-    /** Três dedos no ecrã: passa ao painel seguinte da lista (com o mesmo fade suave). */
-    private fun nextPanel() {
-        val now = android.os.SystemClock.elapsedRealtime()
-        if (now - lastSwitchAt < 1200) return
-        lastSwitchAt = now
+    private fun centroidX(ev: MotionEvent): Float { var t = 0f; for (i in 0 until ev.pointerCount) t += ev.getX(i); return t / ev.pointerCount }
+    private fun centroidY(ev: MotionEvent): Float { var t = 0f; for (i in 0 until ev.pointerCount) t += ev.getY(i); return t / ev.pointerCount }
+
+    private var slideDelta = 0
+    private var slideTarget = 0
+
+    /**
+     * Troca de painel com transição horizontal. delta = +1 (seguinte, entra pela direita) ou -1 (anterior).
+     * O painel de destino carrega num segundo WebView fora do ecrã; quando está pronto, os dois deslizam juntos.
+     */
+    private fun switchPanel(delta: Int) {
+        if (switching || PanelState.sleeping) return
         val list = prefs.panels
         if (list.size < 2) {
             Toast.makeText(this, "Só há um painel guardado", Toast.LENGTH_SHORT).show()
             return
         }
-        val next = (prefs.activeIndex.coerceIn(0, list.lastIndex) + 1) % list.size
-        prefs.activeIndex = next
-        Toast.makeText(this, list[next].name.ifBlank { list[next].url }, Toast.LENGTH_SHORT).show()
-        cover()
-        loadedUrl = list[next].url
-        web.loadUrl(loadedUrl)
-        scheduleReveal()
+        val cur = prefs.activeIndex.coerceIn(0, list.lastIndex)
+        slideTarget = (cur + delta + list.size) % list.size
+        slideDelta = delta
+        switching = true
+        standbyFailed = false
+        Toast.makeText(this, list[slideTarget].name.ifBlank { list[slideTarget].url }, Toast.LENGTH_SHORT).show()
+
+        val incoming = newWebView()
+        standby = incoming
+        incoming.translationX = delta * container.width.toFloat() // fora do ecrã, do lado de onde vai entrar
+        container.addView(incoming, container.indexOfChild(blackout), FrameLayout.LayoutParams(-1, -1))
+        incoming.loadUrl(list[slideTarget].url)
+        handler.postDelayed(startSlide, SWITCH_TIMEOUT_MS) // rede de segurança se onPageFinished nunca vier
+    }
+
+    private val startSlide: Runnable = Runnable {
+        val incoming = standby ?: return@Runnable
+        if (!switching) return@Runnable
+        handler.removeCallbacks(startSlide)
+        val outgoing = web
+        val w = container.width.toFloat()
+        val ip = DecelerateInterpolator(1.6f)
+        outgoing.animate().translationX(-slideDelta * w).setDuration(SLIDE_MS).setInterpolator(ip).start()
+        incoming.animate().translationX(0f).setDuration(SLIDE_MS).setInterpolator(ip).withEndAction {
+            // O destino passa a ser o painel ativo; o antigo é libertado (poupa memória no tablet).
+            prefs.activeIndex = slideTarget
+            loadedUrl = prefs.url
+            web = incoming
+            standby = null
+            container.removeView(outgoing)
+            outgoing.destroy()
+            switching = false
+            pageFailed = standbyFailed
+            if (pageFailed) markFailed()
+        }.start()
     }
 
     private fun cover() {

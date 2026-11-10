@@ -189,7 +189,7 @@ class SettingsActivity : Activity() {
         col.addView(cards, LinearLayout.LayoutParams(-1, -2))
 
         // Painel
-        val panel = card(cards, "Painéis", "Toca num painel para o ativar. 3 dedos no painel alternam.")
+        val panel = card(cards, "Painéis", "Toca num painel para o ativar. Desliza 3 dedos no painel para alternar.")
         panelList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         // Lista com altura limitada: com muitos painéis, faz scroll só aqui dentro.
         panel.addView(
