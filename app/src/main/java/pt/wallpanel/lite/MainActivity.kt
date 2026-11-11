@@ -39,6 +39,7 @@ class MainActivity : Activity() {
     }
 
     private lateinit var prefs: Prefs
+    private lateinit var bridge: WebBridge
     private lateinit var web: WebView
     private lateinit var container: FrameLayout
     private var standby: WebView? = null
@@ -92,6 +93,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
+        bridge = WebBridge(this, prefs)
         if (prefs.url.isBlank()) {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
@@ -123,6 +125,9 @@ class MainActivity : Activity() {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
+        // Painéis que conhecem esta app (Pine3 Homeview) detetam-na pelo user agent e por window.Pine3Wallpanel.
+        settings.userAgentString = "${settings.userAgentString} ${WebBridge.USER_AGENT}"
+        addJavascriptInterface(bridge, WebBridge.NAME)
         webViewClient = object : WebViewClient() {
             override fun onReceivedSslError(view: WebView, h: SslErrorHandler, e: SslError) {
                 if (prefs.ignoreSsl) h.proceed() else h.cancel()
@@ -161,7 +166,8 @@ class MainActivity : Activity() {
         // Se não houver bloqueio seguro (PIN), isto remove o "deslizar para desbloquear".
         (getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).requestDismissKeyguard(this, null)
 
-        PanelState.listener = { applySleeping(it) }
+        PanelState.listener = { applySleeping(it); sendEvent(if (it) "sleep" else "wake") }
+        PanelState.motionListener = { sendEvent("motion") }
         applySleeping(PanelState.sleeping)
 
         val url = prefs.url
@@ -187,6 +193,7 @@ class MainActivity : Activity() {
         cover() // já fica tapado para o próximo acordar
         handler.removeCallbacks(openSettings)
         PanelState.listener = null
+        PanelState.motionListener = null
         super.onPause()
     }
 
@@ -327,13 +334,19 @@ class MainActivity : Activity() {
         handler.postDelayed(reveal, SETTLE_MS)
     }
 
-    /** Fallback sem permissão de administrador: ecrã preto + brilho no mínimo absoluto. */
+    /** Fallback sem permissão de administrador: ecrã preto + brilho no mínimo absoluto. Ao acordar, volta ao brilho pedido pela página. */
     private fun applySleeping(sleeping: Boolean) {
         if (sleeping) cover() else scheduleReveal()
         val lp = window.attributes
         lp.screenBrightness = if (sleeping) WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_OFF
-        else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        else PanelState.pageBrightness
         window.attributes = lp
+    }
+
+    /** Evento para a página: window.addEventListener("pine3wallpanel", e => e.detail.type). */
+    private fun sendEvent(type: String) {
+        val js = "window.dispatchEvent(new CustomEvent('pine3wallpanel',{detail:{type:'$type'}}))"
+        try { web.evaluateJavascript(js, null) } catch (_: Exception) {}
     }
 
     @Suppress("DEPRECATION")

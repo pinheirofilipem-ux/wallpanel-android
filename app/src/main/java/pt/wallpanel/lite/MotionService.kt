@@ -37,8 +37,21 @@ class MotionService : Service() {
             try { ctx.startForegroundService(i) } catch (_: Exception) {}
         }
 
-        /** Chamado pelas atividades quando o utilizador toca no ecrã. */
+        /** Chamado pelas atividades quando o utilizador toca no ecrã (e pela página, via WebBridge.wake). */
         fun poke() { instance?.main?.post { instance?.onActivity() } }
+
+        /** A página pede o ecrã ligado durante pelo menos estes segundos. */
+        fun keepAwake(seconds: Int) { instance?.main?.post { instance?.holdAwake(seconds) } }
+
+        /** A página pede para desligar o ecrã já. */
+        fun sleepNow() { instance?.main?.post { instance?.goToSleep() } }
+
+        /** Segundos até o ecrã desligar (-1 se já está a dormir ou o serviço não corre). */
+        fun secondsToSleep(): Long {
+            val s = instance ?: return -1
+            if (PanelState.sleeping) return -1
+            return ((s.sleepAt - SystemClock.elapsedRealtime()) / 1000).coerceAtLeast(0)
+        }
 
         fun isAdminActive(ctx: Context): Boolean {
             val dpm = ctx.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
@@ -52,6 +65,8 @@ class MotionService : Service() {
     private var cpuLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
     private var sleptAt = 0L
+    private var sleepAt = 0L
+    private var keepUntil = 0L
 
     private val sleepRunnable = Runnable { goToSleep() }
 
@@ -90,7 +105,7 @@ class MotionService : Service() {
                     setReferenceCounted(false)
                     acquire()
                 }
-            detector = MotionDetector(this, { prefs.sensitivity }) { main.post { onActivity() } }.also { it.start() }
+            detector = MotionDetector(this, { prefs.sensitivity }) { main.post { onActivity(); PanelState.motion() } }.also { it.start() }
             scheduleSleep()
         }
         return START_STICKY
@@ -120,7 +135,16 @@ class MotionService : Service() {
 
     private fun scheduleSleep() {
         main.removeCallbacks(sleepRunnable)
-        main.postDelayed(sleepRunnable, prefs.timeoutSec * 1000L)
+        val now = SystemClock.elapsedRealtime()
+        val delay = maxOf(prefs.timeoutSec * 1000L, keepUntil - now)
+        sleepAt = now + delay
+        main.postDelayed(sleepRunnable, delay)
+    }
+
+    private fun holdAwake(seconds: Int) {
+        keepUntil = SystemClock.elapsedRealtime() + seconds * 1000L
+        if (seconds > 0 && PanelState.sleeping) wake()
+        scheduleSleep()
     }
 
     @Suppress("DEPRECATION")
@@ -141,6 +165,7 @@ class MotionService : Service() {
     }
 
     private fun goToSleep() {
+        if (PanelState.sleeping) return
         sleptAt = SystemClock.elapsedRealtime()
         PanelState.set(true) // a atividade põe ecrã preto + brilho 0 (fallback)
         if (isAdminActive(this)) {

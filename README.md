@@ -32,6 +32,26 @@ App Android mínima (sem dependências externas) para usar um tablet como painel
 - **Definições**: dois dedos premidos durante mais de 2 segundos em qualquer ponto do ecrã.
 - **Arranque automático**: ao ligar o tablet a app abre-se sozinha. Requer ativar uma vez, em Definições, *Aparecer por cima* (e ter aberto a app pelo menos uma vez).
 
+## Ponte com a página (Pine3 Homeview)
+
+A página sabe que está nesta app: o user agent acaba em `Pine3Wallpanel/1` e existe `window.Pine3Wallpanel`.
+O [Pine3 Homeview](https://github.com/pinheirofilipem-ux/Pine3-Homeview) usa isto para sair do face ambiente
+quando há movimento e para baixar o brilho no ambiente; noutros painéis não muda nada.
+
+Métodos (`window.Pine3Wallpanel.…`):
+
+| Método | O que faz |
+|---|---|
+| `version()` | Versão da ponte (1). |
+| `state()` | JSON com `sleeping`, `timeoutSec`, `secondsToSleep`, `lastMotionAgoMs`, `brightness`, `admin`. |
+| `setBrightness(n)` | Brilho do ecrã de 0 a 1; um valor negativo volta ao brilho do sistema. |
+| `wake()` | Conta como atividade: acorda o ecrã e reinicia a contagem. |
+| `keepAwake(s)` | Mantém o ecrã ligado pelo menos `s` segundos (0 cancela). |
+| `sleepNow()` | Desliga o ecrã já. |
+
+Eventos: `window.addEventListener("pine3wallpanel", (e) => e.detail.type)`, com `motion` (no máximo um por segundo),
+`sleep` e `wake`.
+
 ## Samsung Galaxy Tab A7 (SM-T505)
 
 O ecrã é LCD, por isso usa o **administrador de dispositivo** (desliga o backlight a sério; o modo "ecrã preto" deixa luz residual).
