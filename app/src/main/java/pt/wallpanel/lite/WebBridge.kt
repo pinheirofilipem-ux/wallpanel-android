@@ -16,7 +16,7 @@ class WebBridge(private val activity: Activity, private val prefs: Prefs) {
     companion object {
         const val VERSION = 1
         const val NAME = "Pine3Wallpanel"
-        const val USER_AGENT = "Pine3Wallpanel/$VERSION"
+        const val USER_AGENT = "Pine3Wallpanel/1" // a mesma versão que VERSION
     }
 
     /** Versão da ponte (sobe quando mudam os métodos). */
