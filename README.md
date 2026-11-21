@@ -32,6 +32,20 @@ App Android mínima (sem dependências externas) para usar um tablet como painel
 - **Definições**: dois dedos premidos durante mais de 2 segundos em qualquer ponto do ecrã.
 - **Arranque automático**: ao ligar o tablet a app abre-se sozinha. Requer ativar uma vez, em Definições, *Aparecer por cima* (e ter aberto a app pelo menos uma vez).
 
+## Desempenho do WebView
+
+A app afina o WebView para ficar perto do Chrome:
+
+- **Taxa de atualização máxima** do ecrã (ex.: 90 Hz no OPPO Pad SE); sem pedir, uma app fica muitas vezes a 60 Hz.
+- **Renderer com prioridade alta**: o Android não o despromove nem o mata quando falta memória (`largeHeap` também ajuda).
+- **Rasterização fora do ecrã**, sem "flashes" ao deslizar entre painéis; sem zoom nem barras de scroll.
+- **Câmara mais leve com o ecrã ligado**: 4 análises/s (antes ~15), o CPU fica para a página; com o ecrã desligado continua rápida para acordar.
+
+**Texto a 100%** (Definições → Movimento e ecrã, ligado por omissão): o WebView aplica o tamanho de letra do Android e o painel parece "ampliado"; assim fica como no Chrome.
+
+Em **Definições** aparece a versão do WebView, a área do ecrã em px CSS e a taxa máxima. O WebView é o do sistema:
+mantém **Android System WebView** (ou o Chrome, se for o fornecedor) atualizado na Play Store, que é o que mais pesa.
+
 ## Ponte com a página (Pine3 Homeview)
 
 A página sabe que está nesta app: o user agent acaba em `Pine3Wallpanel/1` e existe `window.Pine3Wallpanel`.

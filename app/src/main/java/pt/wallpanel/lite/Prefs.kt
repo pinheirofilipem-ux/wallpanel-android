@@ -65,6 +65,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("boot", true)
         set(v) = sp.edit().putBoolean("boot", v).apply()
 
+    /** Texto do painel sempre a 100%, como no Chrome (o WebView aplica, por omissão, o tamanho de letra do Android). */
+    var fixedText: Boolean
+        get() = sp.getBoolean("fixed_text", true)
+        set(v) = sp.edit().putBoolean("fixed_text", v).apply()
+
     /** Pedido (vindo das definições) para limpar a cache e recarregar o painel; consumido pela MainActivity. */
     var reloadRequested: Boolean
         get() = sp.getBoolean("reload", false)
