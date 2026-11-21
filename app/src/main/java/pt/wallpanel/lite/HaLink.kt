@@ -2,8 +2,11 @@ package pt.wallpanel.lite
 
 import org.json.JSONObject
 
-/** Regra: quando [entity] muda de estado (e, se indicado, o novo estado ou event_type é [whenValue]) acorda o ecrã. */
-data class WakeRule(val entity: String, val whenValue: String, val panel: String)
+/**
+ * Regra: quando [entity] muda de estado (e, se indicado, o novo estado ou event_type é [whenValue]) acorda o ecrã.
+ * [holdSec] = segundos com o ecrã ligado (0 = usa o tempo geral das definições).
+ */
+data class WakeRule(val entity: String, val whenValue: String, val panel: String, val holdSec: Int = 0)
 
 class HaConfig(val wsUrl: String, val token: String, val trustAll: Boolean, val rules: List<WakeRule>)
 

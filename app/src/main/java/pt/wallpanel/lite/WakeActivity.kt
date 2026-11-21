@@ -68,7 +68,7 @@ class WakeActivity : Activity() {
             InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
         ui.labeled(conn, "Token de acesso de longa duração", tokenField, "HA: o teu perfil, separador Segurança, no fim da página.")
         holdField = ui.input(prefs.wakeHoldSec.toString(), "60", InputType.TYPE_CLASS_NUMBER)
-        ui.labeled(conn, "Manter o ecrã ligado (segundos)", holdField)
+        ui.labeled(conn, "Tempo geral com o ecrã ligado (segundos)", holdField, "Cada entidade pode ter o seu próprio tempo.")
 
         val status = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         statusDot = View(this).apply { background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(ui.bad) } }
@@ -85,12 +85,15 @@ class WakeActivity : Activity() {
             LinearLayout.LayoutParams(-1, ui.dp(190)).apply { topMargin = ui.dp(10) }
         )
         ents.addView(ui.button("+ Adicionar entidade", false) { editRule(-1) }, ui.lp(top = 10))
-        ents.addView(ui.button("+ Campainha Comelit (event.doorbell, ring)", false) {
+        ents.addView(ui.button("+ Campainha Comelit (ring, 120 s)", false) {
             val l = prefs.wakeRules.toMutableList()
-            l.add(WakeRule("event.doorbell", "ring", ""))
-            prefs.wakeRules = l
-            renderRules()
-            Toast.makeText(this, "Confirma o id exato da entidade no HA (Ferramentas de programador, Estados).", Toast.LENGTH_LONG).show()
+            if (l.any { it.entity == DEFAULT_DOORBELL.entity }) {
+                Toast.makeText(this, "A campainha Comelit já está na lista.", Toast.LENGTH_SHORT).show()
+            } else {
+                l.add(DEFAULT_DOORBELL)
+                prefs.wakeRules = l
+                renderRules()
+            }
         }, ui.lp(top = 8))
         ents.addView(
             ui.text("\"Só quando\" compara com o novo estado ou o event_type. Vazio = qualquer mudança de estado.", 12f, ui.textSecondary),
@@ -145,6 +148,7 @@ class WakeActivity : Activity() {
             names.addView(ui.text(r.entity, 15f, ui.textPrimary, true).apply { setSingleLine(); ellipsize = TextUtils.TruncateAt.END })
             val detail = buildString {
                 append(if (r.whenValue.isBlank()) "qualquer mudança" else "quando: ${r.whenValue}")
+                if (r.holdSec > 0) append("  ·  ${r.holdSec} s")
                 if (r.panel.isNotBlank()) append("  →  painel: ${r.panel}")
             }
             names.addView(ui.text(detail, 12f, ui.textSecondary))
@@ -160,6 +164,7 @@ class WakeActivity : Activity() {
         val existing = list.getOrNull(index)
         val entity = ui.input(existing?.entity ?: "", "event.doorbell", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS)
         val whenField = ui.input(existing?.whenValue ?: "", "ring  (opcional)", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS)
+        val ruleHold = ui.input(if ((existing?.holdSec ?: 0) > 0) existing!!.holdSec.toString() else "", "geral (${prefs.wakeHoldSec})  (opcional)", InputType.TYPE_CLASS_NUMBER)
         val panels = prefs.panels.map { it.name.ifBlank { it.url } }
         val spinner = Spinner(this).apply {
             adapter = ArrayAdapter(this@WakeActivity, android.R.layout.simple_spinner_dropdown_item, listOf("(não mudar de painel)") + panels)
@@ -170,6 +175,7 @@ class WakeActivity : Activity() {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(ui.dp(22), ui.dp(10), ui.dp(22), 0) }
         ui.labeled(box, "ID da entidade", entity)
         ui.labeled(box, "Só quando (estado ou event_type)", whenField)
+        ui.labeled(box, "Manter o ecrã ligado (segundos)", ruleHold)
         ui.labeled(box, "Ao disparar, mostrar o painel", spinner)
 
         val b = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
@@ -182,7 +188,8 @@ class WakeActivity : Activity() {
                     Toast.makeText(this, "ID inválido (ex.: event.doorbell)", Toast.LENGTH_SHORT).show(); return@setPositiveButton
                 }
                 val sel = spinner.selectedItemPosition
-                val rule = WakeRule(id, whenField.text.toString().trim(), if (sel <= 0) "" else prefs.panels[sel - 1].name)
+                val hold = (ruleHold.text.toString().toIntOrNull() ?: 0).let { if (it <= 0) 0 else it.coerceIn(5, 3600) }
+                val rule = WakeRule(id, whenField.text.toString().trim(), if (sel <= 0) "" else prefs.panels[sel - 1].name, hold)
                 if (existing == null) list.add(rule) else list[index] = rule
                 prefs.wakeRules = list
                 renderRules()

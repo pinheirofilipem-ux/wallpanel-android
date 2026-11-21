@@ -152,7 +152,7 @@ class MotionService : Service() {
         val token = prefs.haToken
         val rules = prefs.wakeRules.filter { it.entity.isNotBlank() }
         val sig = if (wsUrl == null || token.isBlank() || rules.isEmpty()) ""
-        else "$wsUrl|$token|${prefs.ignoreSsl}|" + rules.joinToString(";") { "${it.entity}/${it.whenValue}/${it.panel}" }
+        else "$wsUrl|$token|${prefs.ignoreSsl}|" + rules.joinToString(";") { "${it.entity}/${it.whenValue}/${it.panel}/${it.holdSec}" }
         if (sig == haSig && (sig.isEmpty() || haLink != null)) return
         haSig = sig
         haLink?.stop()
@@ -178,7 +178,7 @@ class MotionService : Service() {
                 PanelState.panelRequest?.invoke()
             }
         }
-        holdAwake(prefs.wakeHoldSec)
+        holdAwake(if (rule.holdSec > 0) rule.holdSec else prefs.wakeHoldSec)
     }
 
     private fun holdAwake(seconds: Int) {

@@ -7,6 +7,9 @@ import org.json.JSONObject
 
 data class Panel(val name: String, val url: String)
 
+/** Campainha da integração Comelit: acorda o ecrã 120 s quando o evento é "ring". */
+val DEFAULT_DOORBELL = WakeRule("event.entry_hallway_comelit_intercom_doorbell", "ring", "", 120)
+
 class Prefs(ctx: Context) {
     private val sp: SharedPreferences = ctx.applicationContext.getSharedPreferences("panel", Context.MODE_PRIVATE)
 
@@ -93,18 +96,21 @@ class Prefs(ctx: Context) {
     /** Entidades do HA que acordam o ecrã. */
     var wakeRules: List<WakeRule>
         get() {
-            val raw = sp.getString("wakeRules", null) ?: return emptyList()
+            // Sem nada guardado: a campainha Comelit já vem mapeada (só falta o token do HA).
+            val raw = sp.getString("wakeRules", null) ?: return listOf(DEFAULT_DOORBELL)
             return try {
                 val arr = JSONArray(raw)
                 (0 until arr.length()).map {
                     val o = arr.getJSONObject(it)
-                    WakeRule(o.optString("entity"), o.optString("when"), o.optString("panel"))
+                    WakeRule(o.optString("entity"), o.optString("when"), o.optString("panel"), o.optInt("hold", 0))
                 }
             } catch (_: Exception) { emptyList() }
         }
         set(v) {
             val arr = JSONArray()
-            v.forEach { arr.put(JSONObject().put("entity", it.entity).put("when", it.whenValue).put("panel", it.panel)) }
+            v.forEach {
+                arr.put(JSONObject().put("entity", it.entity).put("when", it.whenValue).put("panel", it.panel).put("hold", it.holdSec))
+            }
             sp.edit().putString("wakeRules", arr.toString()).apply()
         }
 

@@ -74,8 +74,9 @@ Funciona com o ecrã desligado: a ligação vive no serviço da app e reconecta 
 1. No HA, cria um **token de acesso de longa duração** (o teu perfil, separador Segurança).
 2. Na app: Definições → **Acordar com entidades do Home Assistant…**
 3. Cola o token (o endereço é o do painel ativo, a não ser que indiques outro) e define quantos segundos o ecrã fica ligado.
-4. Adiciona entidades. Para a integração [comelit_homeassistant_intercom](https://github.com/pinheirofilipem-ux/comelit_homeassistant_intercom) usa o atalho
-   **+ Campainha Comelit** (`event.doorbell`, só quando `ring`). Confirma o id exato em Ferramentas de programador, Estados.
+4. A campainha Comelit já vem mapeada por omissão: `event.entry_hallway_comelit_intercom_doorbell`, só quando
+   `event_type: ring`, com o ecrã ligado **120 s**. Falta apenas o token. Podes editar ou apagar a regra e juntar outras entidades;
+   cada uma tem o seu tempo (vazio = o tempo geral).
 5. Opcional: escolhe um painel para mostrar ao disparar (por exemplo, o da câmara da porta).
 
 Regras: "Só quando" compara com o novo estado (`on`, `home`…) ou com o `event_type` das entidades `event.*`;
