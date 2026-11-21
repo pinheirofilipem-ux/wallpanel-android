@@ -232,6 +232,10 @@ class SettingsActivity : Activity() {
         }
         motion.addView(sens, lp(top = 6))
         showSens(prefs.sensitivity)
+        motion.addView(
+            button("Acordar com entidades do Home Assistant…", false) { save(); startActivity(Intent(this, WakeActivity::class.java)) },
+            lp(top = 20)
+        )
 
         // Sistema
         val system = card(cards, "Sistema", "Permissões para funcionar sempre, mesmo com o ecrã desligado", 1.15f)

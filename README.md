@@ -52,6 +52,21 @@ Métodos (`window.Pine3Wallpanel.…`):
 Eventos: `window.addEventListener("pine3wallpanel", (e) => e.detail.type)`, com `motion` (no máximo um por segundo),
 `sleep` e `wake`.
 
+## Acordar com entidades do Home Assistant (ex.: campainha)
+
+A app liga-se ao Home Assistant (API WebSocket) e acorda o ecrã quando uma entidade mapeada muda de estado.
+Funciona com o ecrã desligado: a ligação vive no serviço da app e reconecta sozinha se o Wi-Fi ou o HA caírem.
+
+1. No HA, cria um **token de acesso de longa duração** (o teu perfil, separador Segurança).
+2. Na app: Definições → **Acordar com entidades do Home Assistant…**
+3. Cola o token (o endereço é o do painel ativo, a não ser que indiques outro) e define quantos segundos o ecrã fica ligado.
+4. Adiciona entidades. Para a integração [comelit_homeassistant_intercom](https://github.com/pinheirofilipem-ux/comelit_homeassistant_intercom) usa o atalho
+   **+ Campainha Comelit** (`event.doorbell`, só quando `ring`). Confirma o id exato em Ferramentas de programador, Estados.
+5. Opcional: escolhe um painel para mostrar ao disparar (por exemplo, o da câmara da porta).
+
+Regras: "Só quando" compara com o novo estado (`on`, `home`…) ou com o `event_type` das entidades `event.*`;
+vazio = qualquer mudança de estado. O token fica guardado só no tablet.
+
 ## Samsung Galaxy Tab A7 (SM-T505)
 
 O ecrã é LCD, por isso usa o **administrador de dispositivo** (desliga o backlight a sério; o modo "ecrã preto" deixa luz residual).

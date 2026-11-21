@@ -69,4 +69,51 @@ class Prefs(ctx: Context) {
     var reloadRequested: Boolean
         get() = sp.getBoolean("reload", false)
         set(v) = sp.edit().putBoolean("reload", v).apply()
+
+    /** Endereço do Home Assistant; vazio = usa o endereço do painel ativo. */
+    var haUrl: String
+        get() = sp.getString("haUrl", "") ?: ""
+        set(v) = sp.edit().putString("haUrl", v.trim()).apply()
+
+    /** Token de acesso de longa duração do Home Assistant (fica só neste dispositivo). */
+    var haToken: String
+        get() = sp.getString("haToken", "") ?: ""
+        set(v) = sp.edit().putString("haToken", v.trim()).apply()
+
+    /** Segundos que o ecrã fica ligado depois de uma entidade mapeada disparar. */
+    var wakeHoldSec: Int
+        get() = sp.getInt("wakeHold", 60)
+        set(v) = sp.edit().putInt("wakeHold", v.coerceIn(5, 3600)).apply()
+
+    /** Entidades do HA que acordam o ecrã. */
+    var wakeRules: List<WakeRule>
+        get() {
+            val raw = sp.getString("wakeRules", null) ?: return emptyList()
+            return try {
+                val arr = JSONArray(raw)
+                (0 until arr.length()).map {
+                    val o = arr.getJSONObject(it)
+                    WakeRule(o.optString("entity"), o.optString("when"), o.optString("panel"))
+                }
+            } catch (_: Exception) { emptyList() }
+        }
+        set(v) {
+            val arr = JSONArray()
+            v.forEach { arr.put(JSONObject().put("entity", it.entity).put("when", it.whenValue).put("panel", it.panel)) }
+            sp.edit().putString("wakeRules", arr.toString()).apply()
+        }
+
+    /** URL da API WebSocket do HA (ws://host:porta/api/websocket), ou null se não há endereço. */
+    fun haWsUrl(): String? {
+        var base = haUrl.ifBlank { url }.trim()
+        if (base.isBlank()) return null
+        if (!base.contains("://")) base = "http://$base"
+        return try {
+            val u = java.net.URI(base)
+            val host = u.host ?: return null
+            val scheme = if (u.scheme.equals("https", true)) "wss" else "ws"
+            val port = if (u.port != -1) ":${u.port}" else ""
+            "$scheme://$host$port/api/websocket"
+        } catch (_: Exception) { null }
+    }
 }

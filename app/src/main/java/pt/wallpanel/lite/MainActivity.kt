@@ -152,6 +152,16 @@ class MainActivity : Activity() {
         }
     }
 
+    /** O painel ativo mudou (regra do Home Assistant): carrega-o, tapado, e revela com o fade habitual. */
+    private fun applyActivePanel() {
+        val url = prefs.url
+        if (url.isBlank() || url == loadedUrl || switching) return
+        cover()
+        loadedUrl = url
+        web.loadUrl(url)
+        scheduleReveal()
+    }
+
     private fun markFailed() {
         pageFailed = true
         handler.removeCallbacks(reload)
@@ -168,6 +178,7 @@ class MainActivity : Activity() {
 
         PanelState.listener = { applySleeping(it); sendEvent(if (it) "sleep" else "wake") }
         PanelState.motionListener = { sendEvent("motion") }
+        PanelState.panelRequest = { applyActivePanel() }
         applySleeping(PanelState.sleeping)
 
         val url = prefs.url
@@ -194,6 +205,7 @@ class MainActivity : Activity() {
         handler.removeCallbacks(openSettings)
         PanelState.listener = null
         PanelState.motionListener = null
+        PanelState.panelRequest = null
         super.onPause()
     }
 

@@ -43,6 +43,11 @@
             android:screenOrientation="sensorLandscape"
             android:showWhenLocked="true" />
 
+        <activity
+            android:name=".WakeActivity"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape" />
+
         <service
             android:name=".MotionService"
             android:exported="false"

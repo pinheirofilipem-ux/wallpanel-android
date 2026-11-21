@@ -14,6 +14,9 @@ object PanelState {
     private var lastMotion = 0L
     private var lastMotionSent = 0L
 
+    /** Pede à atividade para carregar o painel ativo (mudou por uma regra do Home Assistant). */
+    var panelRequest: (() -> Unit)? = null
+
     /** Brilho pedido pela página (WebBridge.setBrightness); NONE = o do sistema. */
     var pageBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
 
