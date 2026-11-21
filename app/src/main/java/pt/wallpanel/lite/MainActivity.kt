@@ -51,6 +51,7 @@ class MainActivity : Activity() {
     private var pageFailed = false
     private var offline = false
     private var resumed = false
+    private var appliedWidth = -1
 
     // Gesto de 3 dedos (swipe horizontal) para trocar de painel.
     private var swipeActive = false
@@ -134,8 +135,8 @@ class MainActivity : Activity() {
         settings.setSupportZoom(false)
         settings.builtInZoomControls = false
         settings.displayZoomControls = false
-        settings.loadWithOverviewMode = false
         settings.useWideViewPort = true
+        applyScale(this)
         settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
         isVerticalScrollBarEnabled = false
         isHorizontalScrollBarEnabled = false
@@ -157,7 +158,9 @@ class MainActivity : Activity() {
             override fun onReceivedHttpError(view: WebView, r: WebResourceRequest, e: android.webkit.WebResourceResponse) {
                 if (r.isForMainFrame && e.statusCode >= 500) { if (view === web) markFailed() else standbyFailed = true }
             }
+            override fun onPageCommitVisible(view: WebView, url: String) { forceViewport(view) }
             override fun onPageFinished(view: WebView, url: String) {
+                forceViewport(view)
                 // O painel de destino acabou de carregar: dá um instante para o SPA desenhar e desliza.
                 if (view === standby && switching) {
                     handler.removeCallbacks(startSlide)
@@ -165,6 +168,25 @@ class MainActivity : Activity() {
                 }
             }
         }
+    }
+
+    /**
+     * Escala do painel. Texto: a 100% (como no Chrome) ou o tamanho de letra do Android.
+     * Largura: com um valor fixo, a página é desenhada com essa largura em px CSS e ajustada ao ecrã
+     * (o meta viewport da página é substituído), seja qual for a densidade do Android.
+     */
+    private fun applyScale(view: WebView) {
+        view.settings.textZoom = if (prefs.fixedText) 100 else Math.round(resources.configuration.fontScale * 100)
+        view.settings.loadWithOverviewMode = prefs.panelWidth > 0
+    }
+
+    private fun forceViewport(view: WebView) {
+        val w = prefs.panelWidth
+        if (w <= 0) return
+        val js = "(function(){var m=document.querySelector('meta[name=viewport]');" +
+            "if(!m){m=document.createElement('meta');m.name='viewport';(document.head||document.documentElement).appendChild(m);}" +
+            "var c='width=$w, user-scalable=no';if(m.getAttribute('content')!==c)m.setAttribute('content',c);})()"
+        try { view.evaluateJavascript(js, null) } catch (_: Exception) {}
     }
 
     private fun markFailed() {
@@ -184,6 +206,12 @@ class MainActivity : Activity() {
         PanelState.listener = { applySleeping(it); sendEvent(if (it) "sleep" else "wake") }
         PanelState.motionListener = { sendEvent("motion") }
         applySleeping(PanelState.sleeping)
+
+        // Escala mudada nas definições: aplica já; uma largura nova pede recarregar a página.
+        applyScale(web)
+        val widthChanged = appliedWidth != -1 && appliedWidth != prefs.panelWidth
+        appliedWidth = prefs.panelWidth
+        if (widthChanged && loadedUrl.isNotBlank() && !prefs.reloadRequested) web.reload()
 
         val url = prefs.url
         if (prefs.reloadRequested) {

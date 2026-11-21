@@ -53,6 +53,8 @@ class SettingsActivity : Activity() {
     private lateinit var sensValue: TextView
     private lateinit var ssl: Switch
     private lateinit var boot: Switch
+    private lateinit var fixedText: Switch
+    private lateinit var panelWidth: EditText
 
     private class StatusRow(val dot: View, val action: TextView, val check: () -> Boolean)
     private val rows = mutableListOf<StatusRow>()
@@ -245,6 +247,11 @@ class SettingsActivity : Activity() {
         motion.addView(sens, lp(top = 6))
         showSens(prefs.sensitivity)
 
+        // Escala do painel (o WebView não escala como o Chrome)
+        fixedText = switchRow(motion, "Texto a 100% (ignorar o tamanho de letra do Android)", prefs.fixedText, top = 20)
+        panelWidth = input(if (prefs.panelWidth > 0) prefs.panelWidth.toString() else "", "Automático", InputType.TYPE_CLASS_NUMBER)
+        labeled(motion, "Largura do painel (px)", panelWidth, "Vazio = automático. Ex.: 1280 desenha o painel com 1280 px de largura e ajusta-o ao ecrã.")
+
         // Sistema
         val system = card(cards, "Sistema", "Permissões para funcionar sempre, mesmo com o ecrã desligado", 1.15f)
         statusRow(system, "Câmara", "Permitir", {
@@ -402,5 +409,7 @@ class SettingsActivity : Activity() {
         prefs.sensitivity = sens.progress + 1
         prefs.ignoreSsl = ssl.isChecked
         prefs.bootStart = boot.isChecked
+        prefs.fixedText = fixedText.isChecked
+        prefs.panelWidth = panelWidth.text.toString().trim().toIntOrNull() ?: 0
     }
 }

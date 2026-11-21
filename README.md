@@ -41,6 +41,11 @@ A app afina o WebView para ficar perto do Chrome:
 - **Rasterização fora do ecrã**, sem "flashes" ao deslizar entre painéis; sem zoom nem barras de scroll.
 - **Câmara mais leve com o ecrã ligado**: 4 análises/s (antes ~15), o CPU fica para a página; com o ecrã desligado continua rápida para acordar.
 
+**Escala do painel** (Definições → Movimento e ecrã):
+
+- **Texto a 100%** (ligado por omissão): o WebView aplica o tamanho de letra do Android e o painel parece "ampliado"; assim fica como no Chrome.
+- **Largura do painel (px)**: vazio = automático. Com um valor (ex.: `1280`), a página é desenhada com essa largura e ajustada ao ecrã, seja qual for a densidade ou o "tamanho de visualização" do Android.
+
 Em **Definições** aparece a versão do WebView, a área do ecrã em px CSS e a taxa máxima. O WebView é o do sistema:
 mantém **Android System WebView** (ou o Chrome, se for o fornecedor) atualizado na Play Store, que é o que mais pesa.
 
