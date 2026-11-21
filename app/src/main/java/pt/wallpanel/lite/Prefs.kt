@@ -70,14 +70,6 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("fixed_text", true)
         set(v) = sp.edit().putBoolean("fixed_text", v).apply()
 
-    /**
-     * Largura do painel em px CSS: a página é desenhada com esta largura e encolhida/esticada para caber no ecrã,
-     * seja qual for a densidade ou o "tamanho de visualização" do Android. 0 = automático (o que o Android decidir).
-     */
-    var panelWidth: Int
-        get() = sp.getInt("panel_width", 0)
-        set(v) = sp.edit().putInt("panel_width", if (v <= 0) 0 else v.coerceIn(480, 3840)).apply()
-
     /** Pedido (vindo das definições) para limpar a cache e recarregar o painel; consumido pela MainActivity. */
     var reloadRequested: Boolean
         get() = sp.getBoolean("reload", false)

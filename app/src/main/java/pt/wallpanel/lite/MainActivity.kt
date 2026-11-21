@@ -51,7 +51,6 @@ class MainActivity : Activity() {
     private var pageFailed = false
     private var offline = false
     private var resumed = false
-    private var createdWidth = 0
 
     // Gesto de 3 dedos (swipe horizontal) para trocar de painel.
     private var swipeActive = false
@@ -89,25 +88,6 @@ class MainActivity : Activity() {
                 handler.postDelayed(reload, 1500)
             }
         }
-    }
-
-    /**
-     * Largura do painel à resolução nativa: em vez de encolher a página (zoom, mais pesado), muda a densidade
-     * desta atividade, e o WebView desenha a página diretamente com essa largura em px CSS.
-     * Ex.: 1920 num ecrã de 1920×1200 => 1 px CSS = 1 px do ecrã.
-     */
-    override fun attachBaseContext(newBase: Context) {
-        val width = try { Prefs(newBase).panelWidth } catch (_: Exception) { 0 }
-        createdWidth = width
-        if (width <= 0) return super.attachBaseContext(newBase)
-        @Suppress("DEPRECATION")
-        val real = android.util.DisplayMetrics().also {
-            (newBase.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(it)
-        }
-        val longSide = maxOf(real.widthPixels, real.heightPixels)
-        val cfg = android.content.res.Configuration(newBase.resources.configuration)
-        cfg.densityDpi = Math.round(160f * longSide / width).coerceIn(80, 640)
-        super.attachBaseContext(newBase.createConfigurationContext(cfg))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -177,9 +157,7 @@ class MainActivity : Activity() {
             override fun onReceivedHttpError(view: WebView, r: WebResourceRequest, e: android.webkit.WebResourceResponse) {
                 if (r.isForMainFrame && e.statusCode >= 500) { if (view === web) markFailed() else standbyFailed = true }
             }
-            override fun onPageCommitVisible(view: WebView, url: String) { forceViewport(view) }
             override fun onPageFinished(view: WebView, url: String) {
-                forceViewport(view)
                 // O painel de destino acabou de carregar: dá um instante para o SPA desenhar e desliza.
                 if (view === standby && switching) {
                     handler.removeCallbacks(startSlide)
@@ -189,26 +167,9 @@ class MainActivity : Activity() {
         }
     }
 
-    /**
-     * Escala do painel. Texto: a 100% (como no Chrome) ou o tamanho de letra do Android.
-     * Largura: com um valor fixo, a página é desenhada com essa largura em px CSS e ajustada ao ecrã
-     * (o meta viewport da página é substituído), seja qual for a densidade do Android.
-     */
+    /** Texto do painel a 100% (como no Chrome) ou com o tamanho de letra do Android. */
     private fun applyScale(view: WebView) {
         view.settings.textZoom = if (prefs.fixedText) 100 else Math.round(resources.configuration.fontScale * 100)
-        view.settings.loadWithOverviewMode = prefs.panelWidth > 0
-    }
-
-    /** Rede de segurança: se o WebView não seguir a densidade da atividade, a página é ajustada à largura pedida. */
-
-    private fun forceViewport(view: WebView) {
-        val w = prefs.panelWidth
-        if (w <= 0) return
-        val js = "(function(){var m=document.querySelector('meta[name=viewport]');" +
-            "if(!m){m=document.createElement('meta');m.name='viewport';(document.head||document.documentElement).appendChild(m);}" +
-            "if(Math.abs(window.innerWidth-$w)<=8)return;" +
-            "var c='width=$w, user-scalable=no';if(m.getAttribute('content')!==c)m.setAttribute('content',c);})()"
-        try { view.evaluateJavascript(js, null) } catch (_: Exception) {}
     }
 
     private fun markFailed() {
@@ -229,8 +190,6 @@ class MainActivity : Activity() {
         PanelState.motionListener = { sendEvent("motion") }
         applySleeping(PanelState.sleeping)
 
-        // Largura mudada nas definições: recria a atividade com a nova densidade.
-        if (prefs.panelWidth != createdWidth) { recreate(); return }
         applyScale(web)
 
         val url = prefs.url
