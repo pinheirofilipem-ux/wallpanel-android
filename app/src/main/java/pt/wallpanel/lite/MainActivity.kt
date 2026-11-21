@@ -51,7 +51,7 @@ class MainActivity : Activity() {
     private var pageFailed = false
     private var offline = false
     private var resumed = false
-    private var appliedWidth = -1
+    private var createdWidth = 0
 
     // Gesto de 3 dedos (swipe horizontal) para trocar de painel.
     private var swipeActive = false
@@ -89,6 +89,25 @@ class MainActivity : Activity() {
                 handler.postDelayed(reload, 1500)
             }
         }
+    }
+
+    /**
+     * Largura do painel à resolução nativa: em vez de encolher a página (zoom, mais pesado), muda a densidade
+     * desta atividade, e o WebView desenha a página diretamente com essa largura em px CSS.
+     * Ex.: 1920 num ecrã de 1920×1200 => 1 px CSS = 1 px do ecrã.
+     */
+    override fun attachBaseContext(newBase: Context) {
+        val width = try { Prefs(newBase).panelWidth } catch (_: Exception) { 0 }
+        createdWidth = width
+        if (width <= 0) return super.attachBaseContext(newBase)
+        @Suppress("DEPRECATION")
+        val real = android.util.DisplayMetrics().also {
+            (newBase.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(it)
+        }
+        val longSide = maxOf(real.widthPixels, real.heightPixels)
+        val cfg = android.content.res.Configuration(newBase.resources.configuration)
+        cfg.densityDpi = Math.round(160f * longSide / width).coerceIn(80, 640)
+        super.attachBaseContext(newBase.createConfigurationContext(cfg))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -180,11 +199,14 @@ class MainActivity : Activity() {
         view.settings.loadWithOverviewMode = prefs.panelWidth > 0
     }
 
+    /** Rede de segurança: se o WebView não seguir a densidade da atividade, a página é ajustada à largura pedida. */
+
     private fun forceViewport(view: WebView) {
         val w = prefs.panelWidth
         if (w <= 0) return
         val js = "(function(){var m=document.querySelector('meta[name=viewport]');" +
             "if(!m){m=document.createElement('meta');m.name='viewport';(document.head||document.documentElement).appendChild(m);}" +
+            "if(Math.abs(window.innerWidth-$w)<=8)return;" +
             "var c='width=$w, user-scalable=no';if(m.getAttribute('content')!==c)m.setAttribute('content',c);})()"
         try { view.evaluateJavascript(js, null) } catch (_: Exception) {}
     }
@@ -207,11 +229,9 @@ class MainActivity : Activity() {
         PanelState.motionListener = { sendEvent("motion") }
         applySleeping(PanelState.sleeping)
 
-        // Escala mudada nas definições: aplica já; uma largura nova pede recarregar a página.
+        // Largura mudada nas definições: recria a atividade com a nova densidade.
+        if (prefs.panelWidth != createdWidth) { recreate(); return }
         applyScale(web)
-        val widthChanged = appliedWidth != -1 && appliedWidth != prefs.panelWidth
-        appliedWidth = prefs.panelWidth
-        if (widthChanged && loadedUrl.isNotBlank() && !prefs.reloadRequested) web.reload()
 
         val url = prefs.url
         if (prefs.reloadRequested) {

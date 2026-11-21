@@ -44,7 +44,7 @@ A app afina o WebView para ficar perto do Chrome:
 **Escala do painel** (Definições → Movimento e ecrã):
 
 - **Texto a 100%** (ligado por omissão): o WebView aplica o tamanho de letra do Android e o painel parece "ampliado"; assim fica como no Chrome.
-- **Largura do painel (px)**: vazio = automático. Com um valor (ex.: `1280`), a página é desenhada com essa largura e ajustada ao ecrã, seja qual for a densidade ou o "tamanho de visualização" do Android.
+- **Largura do painel (px)**: vazio = a do Android. Com um valor (ex.: `1920` num ecrã 1920×1200), a app muda a densidade do painel e a página é desenhada diretamente com essa largura, à resolução nativa e sem zoom (se o WebView não seguir a densidade, a página é ajustada como rede de segurança).
 
 Em **Definições** aparece a versão do WebView, a área do ecrã em px CSS e a taxa máxima. O WebView é o do sistema:
 mantém **Android System WebView** (ou o Chrome, se for o fornecedor) atualizado na Play Store, que é o que mais pesa.

@@ -250,7 +250,7 @@ class SettingsActivity : Activity() {
         // Escala do painel (o WebView não escala como o Chrome)
         fixedText = switchRow(motion, "Texto a 100% (ignorar o tamanho de letra do Android)", prefs.fixedText, top = 20)
         panelWidth = input(if (prefs.panelWidth > 0) prefs.panelWidth.toString() else "", "Automático", InputType.TYPE_CLASS_NUMBER)
-        labeled(motion, "Largura do painel (px)", panelWidth, "Vazio = automático. Ex.: 1280 desenha o painel com 1280 px de largura e ajusta-o ao ecrã.")
+        labeled(motion, "Largura do painel (px)", panelWidth, "Vazio = o do Android. Ex.: 1920 desenha o painel à resolução total do ecrã (1 px = 1 px), sem zoom.")
 
         // Sistema
         val system = card(cards, "Sistema", "Permissões para funcionar sempre, mesmo com o ecrã desligado", 1.15f)
