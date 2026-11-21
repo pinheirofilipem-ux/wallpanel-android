@@ -67,6 +67,8 @@ class MotionService : Service() {
     private var sleptAt = 0L
     private var sleepAt = 0L
     private var keepUntil = 0L
+    private var haLink: HaLink? = null
+    private var haSig = ""
 
     private val sleepRunnable = Runnable { goToSleep() }
 
@@ -108,6 +110,7 @@ class MotionService : Service() {
             detector = MotionDetector(this, { prefs.sensitivity }) { main.post { onActivity(); PanelState.motion() } }.also { it.start() }
             scheduleSleep()
         }
+        refreshHa()
         return START_STICKY
     }
 
@@ -116,6 +119,8 @@ class MotionService : Service() {
         main.removeCallbacksAndMessages(null)
         detector?.stop()
         detector = null
+        haLink?.stop()
+        haLink = null
         cpuLock?.let { if (it.isHeld) it.release() }
         wifiLock?.let { if (it.isHeld) it.release() }
         PanelState.set(false)
@@ -139,6 +144,41 @@ class MotionService : Service() {
         val delay = maxOf(prefs.timeoutSec * 1000L, keepUntil - now)
         sleepAt = now + delay
         main.postDelayed(sleepRunnable, delay)
+    }
+
+    /** (Re)liga ao Home Assistant se a configuração mudou; desliga se já não há entidades/token. */
+    private fun refreshHa() {
+        val wsUrl = prefs.haWsUrl()
+        val token = prefs.haToken
+        val rules = prefs.wakeRules.filter { it.entity.isNotBlank() }
+        val sig = if (wsUrl == null || token.isBlank() || rules.isEmpty()) ""
+        else "$wsUrl|$token|${prefs.ignoreSsl}|" + rules.joinToString(";") { "${it.entity}/${it.whenValue}/${it.panel}" }
+        if (sig == haSig && (sig.isEmpty() || haLink != null)) return
+        haSig = sig
+        haLink?.stop()
+        haLink = null
+        if (sig.isEmpty()) {
+            HaStatus.text = "Inativo (falta endereço, token ou entidades)"; HaStatus.connected = false
+            return
+        }
+        haLink = HaLink(
+            HaConfig(wsUrl!!, token, prefs.ignoreSsl, rules),
+            { text, connected -> HaStatus.text = text; HaStatus.connected = connected },
+            { rule -> main.post { onHaTrigger(rule) } },
+        ).also { it.start() }
+    }
+
+    /** Uma entidade mapeada disparou (ex.: campainha): muda de painel se pedido e acorda o ecrã. */
+    private fun onHaTrigger(rule: WakeRule) {
+        if (rule.panel.isNotBlank()) {
+            val list = prefs.panels
+            val idx = list.indexOfFirst { it.name.trim().equals(rule.panel.trim(), ignoreCase = true) }
+            if (idx >= 0 && idx != prefs.activeIndex) {
+                prefs.activeIndex = idx
+                PanelState.panelRequest?.invoke()
+            }
+        }
+        holdAwake(prefs.wakeHoldSec)
     }
 
     private fun holdAwake(seconds: Int) {
