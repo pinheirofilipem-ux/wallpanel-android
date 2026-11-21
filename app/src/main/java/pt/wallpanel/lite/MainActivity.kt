@@ -99,6 +99,8 @@ class MainActivity : Activity() {
         }
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
+        preferHighestRefreshRate()
 
         web = newWebView()
         blackout = View(this).apply {
@@ -125,6 +127,19 @@ class MainActivity : Activity() {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
+        // Desempenho perto do Chrome: o renderer não é despromovido (nem morto) quando há pouca memória,
+        // a página é rasterizada mesmo fora do ecrã (sem "flashes" ao deslizar) e o painel não faz zoom.
+        setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+        settings.offscreenPreRaster = true
+        settings.setSupportZoom(false)
+        settings.builtInZoomControls = false
+        settings.displayZoomControls = false
+        settings.loadWithOverviewMode = false
+        settings.useWideViewPort = true
+        settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
+        isVerticalScrollBarEnabled = false
+        isHorizontalScrollBarEnabled = false
+        overScrollMode = View.OVER_SCROLL_NEVER
         // Painéis que conhecem esta app (Pine3 Homeview) detetam-na pelo user agent e por window.Pine3Wallpanel.
         settings.userAgentString = "${settings.userAgentString} ${WebBridge.USER_AGENT}"
         addJavascriptInterface(bridge, WebBridge.NAME)
@@ -347,6 +362,26 @@ class MainActivity : Activity() {
     private fun sendEvent(type: String) {
         val js = "window.dispatchEvent(new CustomEvent('pine3wallpanel',{detail:{type:'$type'}}))"
         try { web.evaluateJavascript(js, null) } catch (_: Exception) {}
+    }
+
+    /**
+     * O Chrome corre à taxa máxima do ecrã (90 Hz no OPPO Pad SE); uma app fica muitas vezes a 60 Hz
+     * se não o pedir. Escolhe o modo com a mesma resolução e a maior taxa de atualização.
+     */
+    @Suppress("DEPRECATION")
+    private fun preferHighestRefreshRate() {
+        try {
+            val display = if (Build.VERSION.SDK_INT >= 30) display else windowManager.defaultDisplay
+            display ?: return
+            val cur = display.mode
+            val best = display.supportedModes
+                .filter { it.physicalWidth == cur.physicalWidth && it.physicalHeight == cur.physicalHeight }
+                .maxByOrNull { it.refreshRate } ?: return
+            val lp = window.attributes
+            lp.preferredDisplayModeId = best.modeId
+            lp.preferredRefreshRate = best.refreshRate
+            window.attributes = lp
+        } catch (_: Exception) {}
     }
 
     @Suppress("DEPRECATION")

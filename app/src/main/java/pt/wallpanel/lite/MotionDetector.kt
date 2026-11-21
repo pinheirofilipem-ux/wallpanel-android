@@ -28,7 +28,8 @@ class MotionDetector(
     private companion object {
         const val COLS = 32
         const val ROWS = 24
-        const val MIN_FRAME_INTERVAL_MS = 60L      // máx ~16 fps de análise
+        const val MIN_FRAME_INTERVAL_MS = 60L      // ecrã desligado: máx ~16 fps de análise (acorda depressa)
+        const val AWAKE_FRAME_INTERVAL_MS = 250L   // ecrã ligado: 4 análises/s chegam para adiar o desligar, e o CPU fica para a página
         const val NOTIFY_INTERVAL_MS = 150L        // máx de avisos por segundo ao serviço
         const val WATCHDOG_MS = 4000L
     }
@@ -166,7 +167,8 @@ class MotionDetector(
         try {
             val now = SystemClock.elapsedRealtime()
             lastFrameAt = now
-            if (now - (lastProcessedAt) < MIN_FRAME_INTERVAL_MS) return
+            val every = if (PanelState.sleeping) MIN_FRAME_INTERVAL_MS else AWAKE_FRAME_INTERVAL_MS
+            if (now - (lastProcessedAt) < every) return
             lastProcessedAt = now
 
             val plane = img.planes[0]

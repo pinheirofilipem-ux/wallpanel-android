@@ -57,6 +57,17 @@ class SettingsActivity : Activity() {
     private class StatusRow(val dot: View, val action: TextView, val check: () -> Boolean)
     private val rows = mutableListOf<StatusRow>()
 
+    /** WebView em uso, área do painel em px CSS (o que a página vê) e taxa de atualização: ajuda a afinar o painel e a ver se o WebView está desatualizado. */
+    @Suppress("DEPRECATION")
+    private fun deviceInfo(): String {
+        val wv = try { android.webkit.WebView.getCurrentWebViewPackage()?.versionName?.substringBefore(' ') } catch (_: Exception) { null }
+        val m = android.util.DisplayMetrics().also { windowManager.defaultDisplay.getRealMetrics(it) }
+        val w = Math.round(maxOf(m.widthPixels, m.heightPixels) / m.density)
+        val h = Math.round(minOf(m.widthPixels, m.heightPixels) / m.density)
+        val hz = Math.round(windowManager.defaultDisplay.supportedModes.maxOf { it.refreshRate })
+        return "WebView ${wv ?: "?"} · ecrã ${w}×${h} · ${hz} Hz máx."
+    }
+
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     private fun rounded(color: Int, radiusDp: Int) = GradientDrawable().apply {
@@ -180,6 +191,7 @@ class SettingsActivity : Activity() {
         val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         titles.addView(text("Pine3 Wallpanel", 24f, textPrimary, true))
         titles.addView(text("Definições", 14f, textSecondary), lp(top = 1))
+        titles.addView(text(deviceInfo(), 12f, hintColor), lp(top = 2))
         header.addView(titles, LinearLayout.LayoutParams(0, -2, 1f))
         header.addView(button("Guardar e abrir painel", true) { save(); finish() }, LinearLayout.LayoutParams(-2, -2))
         col.addView(header, lp(bottom = 16))

@@ -3,9 +3,9 @@ package pt.wallpanel.lite
 import android.os.SystemClock
 import android.view.WindowManager
 
-/** Estado partilhado entre o serviço (decide) e a atividade (mostra). Só usado na main thread. */
+/** Estado partilhado entre o serviço (decide) e a atividade (mostra). Escrito na main thread; `sleeping` também é lido pela câmara. */
 object PanelState {
-    var sleeping = false
+    @Volatile var sleeping = false
         private set
     var listener: ((Boolean) -> Unit)? = null
 
